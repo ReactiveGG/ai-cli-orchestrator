@@ -53,13 +53,15 @@ public record OrchestratorProperties(
      * @param autoApply     apply the verifier's chosen candidate to the workspace automatically
      * @param keepWorktrees keep worktrees after the run (debugging)
      * @param maxPatchChars diff characters per candidate passed to reviewers/verifier
+     * @param exclude       junk patterns never captured into a candidate (in addition to .gitignore)
      */
     public record Isolation(
             @DefaultValue("true") boolean enabled,
             @DefaultValue({"node_modules", ".venv", "venv", "target", "build", ".gradle"}) List<String> linkDirs,
             @DefaultValue("true") boolean autoApply,
             @DefaultValue("false") boolean keepWorktrees,
-            @DefaultValue("40000") int maxPatchChars
+            @DefaultValue("40000") int maxPatchChars,
+            @DefaultValue({"__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"}) List<String> exclude
     ) {
     }
 

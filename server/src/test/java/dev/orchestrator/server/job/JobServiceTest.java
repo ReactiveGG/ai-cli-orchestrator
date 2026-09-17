@@ -41,7 +41,7 @@ class JobServiceTest {
                         "claude", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "claude", List.of(), null, null, List.of()),
                         "codex", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "codex", List.of(), null, null, List.of())),
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
-                new OrchestratorProperties.Isolation(true, List.of(), true, false, 40_000));
+                new OrchestratorProperties.Isolation(true, List.of(), true, false, 40_000, List.of("__pycache__")));
         orchestration = new OrchestrationService(properties);
         service = new JobService(orchestration, new JobStore(properties.jobsDir()), 1);
     }

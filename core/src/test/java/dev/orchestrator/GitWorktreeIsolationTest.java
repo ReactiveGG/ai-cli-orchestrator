@@ -51,7 +51,7 @@ class GitWorktreeIsolationTest {
         patches = tempDir.resolve("patches");
         git(workspace, "init", "-q");
         Files.writeString(workspace.resolve("app.py"), "print('v1')\n");
-        Files.writeString(workspace.resolve(".gitignore"), "node_modules/\n__pycache__/\n");
+        Files.writeString(workspace.resolve(".gitignore"), "node_modules/\n");   // __pycache__ deliberately NOT ignored
         git(workspace, "add", "-A");
         git(workspace, "commit", "-q", "-m", "init");
         // uncommitted work: a tracked edit, an untracked file, and an ignored dir
@@ -102,7 +102,7 @@ class GitWorktreeIsolationTest {
         assertTrue(p1.patch().contains("-print('v1 edited')") && p1.patch().contains("+print('candidate 1')"));
         assertEquals(1, p2.filesChanged());
         assertTrue(p2.patch().contains("feature.py"));
-        assertFalse(p2.patch().contains("__pycache__"), "ignored files never enter a candidate");
+        assertFalse(p2.patch().contains("__pycache__"), "junk excluded by default even without a .gitignore rule");
         assertFalse(p2.patch().contains("node_modules"), "linked dirs never enter a candidate");
         assertTrue(Files.isRegularFile(patches.resolve("c2.patch")));
         assertNotEquals(p1.commit(), p1.baseCommit());

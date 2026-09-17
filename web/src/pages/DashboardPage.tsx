@@ -58,7 +58,7 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
             <RefreshCw size={12} className={dash.isFetching ? 'animate-spin' : ''} /> 새로고침
           </button>
         </div>
-        <div className="h-52">{d && <TokenChart data={d.usage.last7Days} />}</div>
+        <div className="h-56">{d && <TokenChart data={d.usage.last7Days} />}</div>
       </div>
     </div>
   )

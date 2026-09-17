@@ -61,6 +61,7 @@ orchestrator:
     keep-worktrees: false
     max-patch-chars: 40000
     link-dirs: [node_modules, .venv, venv, target, build, .gradle]
+    exclude: ["__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"]   # never captured into a candidate
   status:
     anthropic-status-url: https://status.claude.com/api/v2/status.json
     cache-ttl: 60s

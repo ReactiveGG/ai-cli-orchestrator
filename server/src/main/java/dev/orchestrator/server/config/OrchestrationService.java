@@ -66,7 +66,7 @@ public class OrchestrationService {
             return IsolationSettings.DISABLED;
         }
         return new IsolationSettings(
-                new GitWorktreeIsolation(properties.worktreesDir(), iso.linkDirs()),
+                new GitWorktreeIsolation(properties.worktreesDir(), iso.linkDirs(), iso.exclude()),
                 properties.workspaceOrCwd(), properties.jobsDir(), iso.autoApply(), iso.keepWorktrees(), iso.maxPatchChars());
     }
 

@@ -69,7 +69,8 @@ export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: s
         <div className="mt-3">
           <FlowDiagram
             height={Math.max(220, Math.min(520, 130 + 90 * Math.max(1, ...Object.values(current.steps.reduce<Record<number, number>>((acc, s) => { acc[s.stage] = (acc[s.stage] ?? 0) + 1; return acc }, {})))))}
-            steps={current.steps.map((s) => ({ id: s.id, label: s.label, module: s.module, role: s.role, dependsOn: s.dependsOn, status: s.status }))}
+            steps={current.steps.map((s) => ({ id: s.id, label: s.label, module: s.module, role: s.role, dependsOn: s.dependsOn, status: s.status, candidate: s.candidate,
+              outcome: s.candidate > 0 && current.chosenCandidate > 0 ? (s.candidate === current.chosenCandidate ? 'chosen' : 'rejected') : undefined }))}
           />
         </div>
       </div>

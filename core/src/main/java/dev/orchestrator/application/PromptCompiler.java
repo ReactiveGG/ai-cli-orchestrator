@@ -80,7 +80,7 @@ public final class PromptCompiler {
             boolean paired = ctx.candidateIndex() > 0 && !role.editsFiles();
             joiner.add("");
             joiner.add(paired
-                    ? "## 검토 대상: 후보 " + ctx.candidateIndex() + " (이 디렉터리에 그대로 적용되어 있음). 다른 후보는 참고용 요약만 있다."
+                    ? "## 검토 대상: 후보 " + ctx.candidateIndex() + " (이 디렉터리에 그대로 적용되어 있음). 이 후보만 평가하라. 다른 후보는 다른 리뷰어가 검토하므로 diff가 없는 것이 정상이며, 아래 요약은 비교 참고용이다."
                     : "## 후보 " + candidates.size() + "개 (각각 독립 작업 공간에서 만든 구현안)");
             for (ExecutionResult c : candidates) {
                 CandidatePatch patch = c.patch();

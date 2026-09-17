@@ -26,17 +26,26 @@ import java.util.stream.Stream;
 public final class GitWorktreeIsolation implements WorkspaceIsolation {
     private static final Pattern SHORTSTAT = Pattern.compile("(\\d+) files? changed(?:, (\\d+) insertions?\\(\\+\\))?(?:, (\\d+) deletions?\\(-\\))?");
 
+    /** Junk that never belongs in a candidate even when the repo forgot to ignore it. */
+    public static final List<String> DEFAULT_EXCLUDES = List.of("__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp");
+
     private final Path root;
     private final List<String> linkDirs;
+    private final List<String> excludes;
     private final String gitCommand;
 
     public GitWorktreeIsolation(Path root, List<String> linkDirs) {
-        this(root, linkDirs, "git");
+        this(root, linkDirs, DEFAULT_EXCLUDES, "git");
     }
 
-    public GitWorktreeIsolation(Path root, List<String> linkDirs, String gitCommand) {
+    public GitWorktreeIsolation(Path root, List<String> linkDirs, List<String> excludes) {
+        this(root, linkDirs, excludes, "git");
+    }
+
+    public GitWorktreeIsolation(Path root, List<String> linkDirs, List<String> excludes, String gitCommand) {
         this.root = root;
         this.linkDirs = linkDirs == null ? List.of() : List.copyOf(linkDirs);
+        this.excludes = excludes == null ? List.of() : List.copyOf(excludes);
         this.gitCommand = gitCommand;
     }
 
@@ -136,6 +145,10 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
             if (Files.isSymbolicLink(wt.resolve(name))) {
                 addArgs.add(":(exclude)" + name);
             }
+        }
+        for (String pattern : excludes) {
+            addArgs.add(":(exclude,glob)**/" + pattern);
+            addArgs.add(":(exclude,glob)" + pattern);
         }
         git(wt, addArgs.toArray(String[]::new));
         boolean changed = exec(wt, Map.of(), false, "diff", "--cached", "--quiet").exit != 0;
