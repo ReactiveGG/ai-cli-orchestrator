@@ -1,7 +1,7 @@
 # v1 완성 TODO
 
 기준: "매일 실제 프로젝트에 쓸 수 있는 v1". 항목을 끝내면 체크박스를 채우고 진행률을 갱신한다.
-마지막 갱신: 2026-09-17 (Claude CLI 실연동 검증 후) · 가중 완성도 **약 88%**
+마지막 갱신: 2026-09-17 (Claude CLI 실연동 검증 후) · 가중 완성도 **약 90%**
 
 | # | 프로세스 | 가중치 | 진행 | 상태 |
 |---|---|---|---|---|
@@ -13,7 +13,7 @@
 | 6 | 에이전트별 모델 선택 | 6 | 100% | 칩마다 모델·에포트 지정 → `--model`/`--effort` 전달, 실모델 확인 완료 |
 | 7 | 설정 UI | 4 | 100% | 구성 탭 하단 "서버 설정"에서 편집, settings.yml 저장·즉시 반영 |
 | 8 | Codex CLI 연동 검증 | 4 | 20% | 미설치, 스텁으로만 확인 |
-| 9 | Windows 네이티브 지원 | 6 | 40% | WSL에서만 검증 |
+| 9 | Windows 네이티브 지원 | 6 | 80% | .cmd 셈 실행·PATHEXT 탐색·정션 폴백·OS별 테스트·run.cmd 구현. 실제 Windows에서 1회 실행 확인만 남음 |
 | 10 | 보안 | 5 | 100% | loopback 바인딩(포트 47120), Host/Origin 검사, 설치별 API 토큰, 작업 공간 루트 제한 |
 | 11 | 테스트·CI | 5 | 25% | Java 테스트만 |
 | 12 | 배포·실행 편의 | 3 | 30% | gradle 명령으로만 실행 |
@@ -97,10 +97,12 @@
 - [ ] usage 필드 집계 확인
 
 ### 9. Windows 네이티브 지원
-- [ ] `claude.cmd` 등 PATH 탐색 확인
-- [ ] 프로세스 트리 종료 동작 확인
-- [ ] ProcessRunner 테스트의 Windows 대응
-- [ ] npm 빌드·bootRun을 Windows PowerShell에서 확인
+- [x] `claude.cmd` 등 PATHEXT 기반 실행 파일 탐색, `.cmd`/`.bat`는 `cmd.exe /c`로 실행 (상태 조회·실행 모두)
+- [x] 프로세스 트리 종료: `ProcessHandle.descendants()` 기반이라 OS 공통
+- [x] ProcessRunner 테스트를 OS별 명령(cmd.exe / sh)으로 분기, 셈 래핑·PATHEXT 탐색 단위 테스트
+- [x] worktree 링크 디렉터리: 심볼릭 링크 실패 시 디렉터리 정션 폴백
+- [x] `run.cmd` / `run.sh` 실행 스크립트, README Windows 절
+- [ ] 실제 Windows(PowerShell)에서 `run.cmd` 기동, claude.cmd 호출, 경쟁 모드 1회 확인
 
 ### 10. 보안
 - [x] `server.address=127.0.0.1` 기본값, 포트 47120

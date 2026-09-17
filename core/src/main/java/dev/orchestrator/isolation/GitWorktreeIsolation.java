@@ -130,7 +130,17 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
             try {
                 Files.createSymbolicLink(target, source.toAbsolutePath());
             } catch (IOException | UnsupportedOperationException e) {
-                // Symlinks may need privileges on Windows; the worktree simply lacks the dir then.
+                // Symlinks need Developer Mode / admin on Windows; a directory junction does not.
+                if (System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")) {
+                    try {
+                        Process p = new ProcessBuilder("cmd.exe", "/c", "mklink", "/J", target.toString(), source.toAbsolutePath().toString())
+                                .redirectErrorStream(true).start();
+                        p.getInputStream().readAllBytes();
+                        p.waitFor(30, TimeUnit.SECONDS);
+                    } catch (IOException | InterruptedException junctionError) {
+                        // the worktree simply lacks the directory then
+                    }
+                }
             }
         }
     }
@@ -142,7 +152,8 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
         // cover a symlink, so exclude them explicitly from the candidate.
         List<String> addArgs = new ArrayList<>(List.of("add", "-A", "--", "."));
         for (String name : linkDirs) {
-            if (Files.isSymbolicLink(wt.resolve(name))) {
+            Path linked = wt.resolve(name);
+            if (Files.isSymbolicLink(linked) || isJunction(linked)) {
                 addArgs.add(":(exclude)" + name);
             }
         }
@@ -220,6 +231,16 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
             exec(toplevel, Map.of(), false, "worktree", "prune");
         }
         deleteRecursively(jobRoot);
+    }
+
+    /** A Windows directory junction (reparse point): Java reports it as "other", not as a symlink. */
+    private static boolean isJunction(Path path) {
+        try {
+            return Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    && Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes.class, java.nio.file.LinkOption.NOFOLLOW_LINKS).isOther();
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     // ---- helpers -----------------------------------------------------------

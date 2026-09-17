@@ -81,7 +81,7 @@ public class ClaudeStatusService {
             return null;
         }
         try {
-            Process process = new ProcessBuilder(command, "--version").redirectErrorStream(true).start();
+            Process process = new ProcessBuilder(ProcessRunner.launchCommand(List.of(command, "--version"))).redirectErrorStream(true).start();
             String line;
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
                 line = reader.readLine();

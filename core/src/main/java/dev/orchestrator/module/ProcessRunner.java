@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +46,7 @@ public final class ProcessRunner {
             ExecutionContext context,
             Consumer<String> onLine
     ) {
-        ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
+        ProcessBuilder builder = new ProcessBuilder(launchCommand(command)).redirectErrorStream(true);
         if (workingDirectory != null) {
             builder.directory(workingDirectory.toFile());
         }
@@ -132,32 +133,93 @@ public final class ProcessRunner {
 
     /** Finds {@code executable} on PATH (also tries .cmd/.exe on Windows). */
     public static boolean isOnPath(String executable) {
+        return resolveExecutable(executable).isPresent();
+    }
+
+    static boolean isWindows() {
+        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+    }
+
+    /**
+     * Resolves an executable name to a file: absolute/relative paths as given,
+     * bare names through PATH. On Windows the extensions in PATHEXT (or .exe/.cmd/.bat/.com)
+     * are tried, so npm shims such as {@code claude.cmd} are found.
+     */
+    public static java.util.Optional<Path> resolveExecutable(String executable) {
+        return resolveExecutable(executable, System.getenv("PATH"), isWindows() ? windowsExtensions() : List.of(""));
+    }
+
+    public static java.util.Optional<Path> resolveExecutable(String executable, String pathEnv, List<String> extensions) {
         if (executable == null || executable.isBlank()) {
-            return false;
+            return java.util.Optional.empty();
         }
-        Path direct = Path.of(executable);
-        if (direct.isAbsolute() || executable.contains("/") || executable.contains("\\")) {
-            return Files.isExecutable(direct);
+        if (executable.contains("/") || executable.contains("\\") || Path.of(executable).isAbsolute()) {
+            for (String ext : extensions) {
+                Path candidate = Path.of(executable + ext);
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return java.util.Optional.of(candidate);
+                }
+            }
+            return java.util.Optional.empty();
         }
-        String pathEnv = System.getenv("PATH");
         if (pathEnv == null) {
-            return false;
+            return java.util.Optional.empty();
         }
-        boolean windows = System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
-        List<String> candidates = windows
-                ? List.of(executable, executable + ".cmd", executable + ".exe", executable + ".bat")
-                : List.of(executable);
         for (String dir : pathEnv.split(java.io.File.pathSeparator)) {
             if (dir.isBlank()) {
                 continue;
             }
-            for (String candidate : candidates) {
-                Path path = Path.of(dir, candidate);
-                if (Files.isRegularFile(path) && Files.isExecutable(path)) {
-                    return true;
+            for (String ext : extensions) {
+                Path candidate = Path.of(dir, executable + ext);
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return java.util.Optional.of(candidate);
                 }
             }
         }
-        return false;
+        return java.util.Optional.empty();
+    }
+
+    private static List<String> windowsExtensions() {
+        String pathext = System.getenv("PATHEXT");
+        List<String> exts = new ArrayList<>();
+        exts.add("");   // a name that already carries its extension
+        if (pathext != null && !pathext.isBlank()) {
+            for (String ext : pathext.split(";")) {
+                if (!ext.isBlank()) {
+                    exts.add(ext.trim().toLowerCase(Locale.ROOT));
+                }
+            }
+        } else {
+            exts.addAll(List.of(".exe", ".cmd", ".bat", ".com"));
+        }
+        return exts;
+    }
+
+    /**
+     * The argv actually handed to the OS. On Windows a {@code .cmd}/{@code .bat} shim
+     * (what npm installs for {@code claude}) cannot be started directly by
+     * CreateProcess, so it is run through {@code cmd.exe /c}.
+     */
+    public static List<String> launchCommand(List<String> command) {
+        return launchCommand(command, isWindows(), ProcessRunner::resolveExecutable);
+    }
+
+    public static List<String> launchCommand(List<String> command, boolean windows, java.util.function.Function<String, java.util.Optional<Path>> resolver) {
+        if (!windows || command.isEmpty()) {
+            return command;
+        }
+        Path resolved = resolver.apply(command.get(0)).orElse(null);
+        if (resolved == null) {
+            return command;
+        }
+        String name = resolved.getFileName().toString().toLowerCase(Locale.ROOT);
+        List<String> launch = new ArrayList<>();
+        if (name.endsWith(".cmd") || name.endsWith(".bat")) {
+            launch.add("cmd.exe");
+            launch.add("/c");
+        }
+        launch.add(resolved.toString());
+        launch.addAll(command.subList(1, command.size()));
+        return launch;
     }
 }
