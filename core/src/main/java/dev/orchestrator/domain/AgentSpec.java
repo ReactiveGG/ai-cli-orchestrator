@@ -1,0 +1,79 @@
+package dev.orchestrator.domain;
+
+import java.util.function.Predicate;
+
+/**
+ * One agent inside a stage: which module (tool) runs it, optionally which role
+ * (instructions) it plays, and optionally which model variant and effort level
+ * the tool should use ({@code claude --model opus --effort high}).
+ * {@code role == null} means "run the compiled prompt as is".
+ */
+public record AgentSpec(String role, String module, String model, String effort) {
+    public AgentSpec {
+        if (module == null || module.isBlank()) {
+            throw new IllegalArgumentException("agent module is required");
+        }
+        role = blankToNull(role);
+        model = blankToNull(model);
+        effort = blankToNull(effort);
+    }
+
+    public AgentSpec(String role, String module) {
+        this(role, module, null, null);
+    }
+
+    /** {@code claude} or {@code planner@claude}. */
+    public String label() {
+        return role == null ? module : role + "@" + module;
+    }
+
+    /** {@code claude}, {@code claude opus}, {@code claude opus/high}. */
+    public String describeModel() {
+        if (model == null && effort == null) {
+            return module;
+        }
+        return module + " " + (model == null ? "기본" : model) + (effort == null ? "" : "/" + effort);
+    }
+
+    public AgentOptions options() {
+        return new AgentOptions(model, effort);
+    }
+
+    /**
+     * Parses the YAML shorthand: {@code claude} (module only), {@code planner@claude},
+     * or {@code planner} (a known role on {@code defaultModule}). A {@code :model}
+     * suffix picks the model and {@code /effort} the effort: {@code claude:opus/high}.
+     */
+    public static AgentSpec parse(String text, String defaultModule, Predicate<String> isRole) {
+        String s = text.trim();
+        String role = null;
+        int at = s.indexOf('@');
+        if (at >= 0) {
+            role = s.substring(0, at);
+            s = s.substring(at + 1);
+        }
+        String effort = null;
+        int slash = s.indexOf('/');
+        if (slash >= 0) {
+            effort = s.substring(slash + 1);
+            s = s.substring(0, slash);
+        }
+        String model = null;
+        int colon = s.indexOf(':');
+        if (colon >= 0) {
+            model = s.substring(colon + 1);
+            s = s.substring(0, colon);
+        }
+        if (role == null && isRole.test(s)) {
+            if (defaultModule == null || defaultModule.isBlank()) {
+                throw new IllegalArgumentException("Role '" + s + "' needs a module: write role@module or set defaultModule");
+            }
+            return new AgentSpec(s, defaultModule, model, effort);
+        }
+        return new AgentSpec(role, s, model, effort);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}

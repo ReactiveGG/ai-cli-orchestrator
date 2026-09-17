@@ -1,0 +1,80 @@
+server:
+  port: 47120           # deliberately not 8080: avoids clashes with other local servers
+  address: 127.0.0.1    # local tool: never listen on other interfaces
+
+spring:
+  application:
+    name: ai-cli-orchestrator
+  mvc:
+    async:
+      request-timeout: -1   # SSE streams stay open
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          no-cache: true    # always revalidate index.html so a redeployed bundle shows up without Ctrl+F5
+          must-revalidate: true
+
+orchestrator:
+  # Jobs, logs and orchestrator.yml (routing) live here.
+  data-dir: ${user.home}/.ai-orchestrator
+  # Directory the AI CLIs run in (the code they may read/edit). Defaults to the server's cwd.
+  # workspace: /path/to/your/project
+  concurrency: 2
+  module-timeout: 10m
+  idle-warning: 60s
+  modules:
+    claude:
+      mode: AUTO          # AUTO | CLI | STUB
+      command: claude
+      # model: sonnet     # --model alias or full name; omit for the CLI default
+      max-budget-usd: 2.0 # --max-budget-usd per agent run; a trivial run already costs ~$0.2 (prompt cache)
+      # Shell commands the agents may run without asking. Non-interactive runs cannot answer
+      # permission prompts, so anything not listed here is denied (edits are governed separately:
+      # only the coder gets --permission-mode acceptEdits).
+      allowed-tools:
+        - "Bash(git status*)"
+        - "Bash(git diff*)"
+        - "Bash(git log*)"
+        - "Bash(ls*)"
+        - "Bash(cat*)"
+        - "Bash(python3 -m unittest*)"
+        - "Bash(python3 -m pytest*)"
+        - "Bash(pytest*)"
+        - "Bash(npm test*)"
+        - "Bash(npm run test*)"
+        - "Bash(npx vitest*)"
+        - "Bash(npx jest*)"
+        - "Bash(./gradlew test*)"
+        - "Bash(mvn test*)"
+        - "Bash(go test*)"
+        - "Bash(cargo test*)"
+      extra-args: []      # e.g. ["--max-turns", "30"]
+    codex:
+      mode: AUTO
+      command: codex
+      extra-args: []
+  # Competition mode (presets with 2+ coders): each coder works in its own git worktree under
+  # <data-dir>/worktrees; the verifier's chosen candidate is applied to the workspace as uncommitted changes.
+  isolation:
+    enabled: true
+    auto-apply: true
+    keep-worktrees: false
+    max-patch-chars: 40000
+    link-dirs: [node_modules, .venv, venv, target, build, .gradle]
+    exclude: ["__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"]   # never captured into a candidate
+  security:
+    # The workspace agents read and edit must be under one of these roots (the UI refuses others).
+    allowed-workspace-roots: ["${user.home}"]
+    # Every /api request must carry the install's token (X-Orchestrator-Token header, Bearer, or ?token=).
+    # It is generated once into <data-dir>/api-token and handed only to the same-origin web page via
+    # GET /api/session. Non-loopback Host headers and cross-site writes are refused regardless.
+    require-token: true
+    token: ""            # set a fixed value instead of the generated one, if you prefer
+  status:
+    anthropic-status-url: https://status.claude.com/api/v2/status.json
+    cache-ttl: 60s
+
+logging:
+  level:
+    dev.orchestrator: INFO

@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Code', 'JetBrains Mono', 'D2Coding', Consolas, monospace;
+}
+
+[cmdk-root] {
+  @apply w-full;
+}
+
+[cmdk-item][data-selected='true'] {
+  @apply bg-sky-50 dark:bg-slate-800;
+}
+
+.log-line {
+  @apply whitespace-pre-wrap break-all;
+}

@@ -1,29 +1,44 @@
 plugins {
-    application
     java
+    id("org.springframework.boot") version "4.1.1" apply false
+    id("io.spring.dependency-management") version "1.1.7" apply false
 }
 
-repositories {
-    mavenCentral()
-}
+// Optional: redirect build output off the project tree, e.g. on WSL where the
+// repo sits on a Windows mount (/mnt/c) that rejects chmod. Set it once in
+// ~/.gradle/gradle.properties:  buildDirBase=/home/<you>/.cache/ai-cli-orchestrator
+val buildDirBase = providers.gradleProperty("buildDirBase").orNull
 
-dependencies {
-    implementation("info.picocli:picocli:4.7.7")
-    implementation("org.yaml:snakeyaml:2.4")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+subprojects {
+    apply(plugin = "java")
 
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+    group = "dev.orchestrator"
+    version = "0.1.0"
+
+    if (buildDirBase != null) {
+        layout.buildDirectory.set(File(buildDirBase, name))
     }
-}
 
-application {
-    mainClass.set("dev.orchestrator.App")
-}
+    repositories {
+        mavenCentral()
+    }
 
-tasks.test {
-    useJUnitPlatform()
+    extensions.configure<JavaPluginExtension> {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+
+    dependencies {
+        "testImplementation"("org.junit.jupiter:junit-jupiter:5.11.4")
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    }
+
+    tasks.withType<Test>().configureEach {
+        useJUnitPlatform()
+    }
+
+    tasks.withType<JavaCompile>().configureEach {
+        options.encoding = "UTF-8"
+    }
 }
