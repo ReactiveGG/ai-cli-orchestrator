@@ -34,3 +34,6 @@ build
 
 # IDE files
 .idea
+
+# Keep the Gradle wrapper jar despite *.jar above
+!gradle/wrapper/gradle-wrapper.jar
