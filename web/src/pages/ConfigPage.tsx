@@ -5,17 +5,15 @@ import { Copy, GripVertical, Play, Plus, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AgentDto, FlowConfig, FlowDto, StageDto } from '../lib/types'
 import { FlowDiagram, type FlowStep } from '../components/FlowDiagram'
+import { agent, buildPlan, signatureOf } from '../lib/plan'
 import { SettingsPanel } from '../components/SettingsPanel'
 
 /** The pipeline is fixed; a preset only decides how many models run each stage. */
 const PIPELINE = ['planner', 'coder', 'reviewer', 'verifier'] as const
 
-const signatureOf = (f: FlowDto) => f.stages.map((s) => Math.max(1, s.models.length)).join('-')
 /** Model aliases the Claude CLI accepts for --model, and the --effort levels. */
 const MODEL_CHOICES: Record<string, string[]> = { claude: ['fable', 'opus', 'sonnet', 'haiku'], codex: ['gpt-5-codex', 'o3'] }
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
-const agent = (module: string): AgentDto => ({ module, model: null, effort: null })
-const describeAgent = (a: AgentDto) => a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module
 
 /**
  * Preset editor. Every preset runs planner → coder → reviewer → verifier; drag
@@ -194,22 +192,6 @@ function normalize(cfg: FlowConfig): FlowConfig {
 }
 function emptyPreset(module: string): FlowDto {
   return { label: '', task: 'custom', defaultModule: module, stages: PIPELINE.map((r) => ({ name: null, role: r, models: [] })) }
-}
-
-export function buildPlan(flow: FlowDto, cfg: FlowConfig): FlowStep[] {
-  const steps: FlowStep[] = []
-  let prev: string[] = []
-  flow.stages.forEach((stage, si) => {
-    const ids: string[] = []
-    const models = stage.models.length ? stage.models : [agent(flow.defaultModule ?? 'claude')]
-    models.forEach((a, k) => {
-      const dup = models.slice(0, k).filter((x) => x.module === a.module).length
-      const id = `s${si + 1}/${stage.role}@${a.module}${dup ? `#${dup}` : ''}`
-      steps.push({ id, label: cfg.roles[stage.role]?.label ?? stage.role, module: describeAgent(a), role: stage.role, dependsOn: prev }); ids.push(id)
-    })
-    prev = ids
-  })
-  return steps
 }
 
 function PaletteBlock({ id, label, sub }: { id: string; label: string; sub: string }) {

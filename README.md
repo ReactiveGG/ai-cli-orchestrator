@@ -1,5 +1,7 @@
 # AI CLI Orchestrator
 
+[![CI](https://github.com/ReactiveGG/ai-cli-orchestrator/actions/workflows/ci.yml/badge.svg)](https://github.com/ReactiveGG/ai-cli-orchestrator/actions/workflows/ci.yml)
+
 여러 AI 코딩 도구(Claude Code, Codex CLI)를 하나의 인터페이스로 묶어, 작업 유형에 따라 적절한 모듈로 라우팅하는 Java 기반 오케스트레이터다. 터미널 CLI와 로컬 웹 대시보드 두 가지로 쓸 수 있다.
 
 ## 사용 기술
@@ -63,7 +65,10 @@ cd web && npm run dev:mock
 
 # 테스트 (웹 빌드 생략)
 ./gradlew test -PskipWeb
+cd web && npm test -- --run        # 웹 단위 테스트 (vitest)
 ```
+
+CI(GitHub Actions)는 push/PR마다 Ubuntu와 Windows에서 Java 테스트를, Ubuntu에서 웹 테스트·빌드를 돌린다.
 
 ## 웹 대시보드
 
