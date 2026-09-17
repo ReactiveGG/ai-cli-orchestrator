@@ -4,7 +4,7 @@ import { formatTime } from '../lib/format'
 import { withToken } from '../lib/api'
 
 /** Two tabs over one event stream: 요약 (SUMMARY) and 상세 (DETAIL). */
-export function LogView({ events, jobId }: { events: JobEvent[]; jobId: string }) {
+export function LogView({ events, jobId, queued = false }: { events: JobEvent[]; jobId: string; queued?: boolean }) {
   const [level, setLevel] = useState<LogLevel>('SUMMARY')
   const [follow, setFollow] = useState(true)
   const [filter, setFilter] = useState('')
@@ -37,7 +37,7 @@ export function LogView({ events, jobId }: { events: JobEvent[]; jobId: string }
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="필터"
-          className="ml-auto w-40 rounded-md border border-slate-200 bg-transparent px-2 py-1 text-sm dark:border-slate-700"
+          className="ml-auto w-28 min-w-0 rounded-md border border-slate-200 bg-transparent px-2 py-1 text-sm sm:w-40 dark:border-slate-700"
         />
         <label className="flex items-center gap-1 text-xs text-slate-500">
           <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> 따라가기
@@ -52,7 +52,7 @@ export function LogView({ events, jobId }: { events: JobEvent[]; jobId: string }
         </a>
       </div>
       <div className="mono min-h-0 flex-1 overflow-auto p-3 text-xs leading-5">
-        {visible.length === 0 && <div className="text-slate-400">로그가 없습니다</div>}
+        {visible.length === 0 && <div className="text-slate-400">{filter ? `'${filter}'에 맞는 로그가 없습니다` : queued ? '대기 중입니다. 실행이 시작되면 로그가 흘러 들어옵니다.' : events.length ? (level === 'SUMMARY' ? '요약 로그가 아직 없습니다' : '상세 로그가 아직 없습니다') : '로그가 없습니다'}</div>}
         {visible.map((e) => (
           <div key={e.seq} className="log-line flex gap-2">
             <span className="shrink-0 text-slate-400">{formatTime(e.at)}</span>

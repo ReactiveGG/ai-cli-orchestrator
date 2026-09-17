@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Save } from 'lucide-react'
 import { api } from '../lib/api'
 import type { Settings } from '../lib/types'
+import { ErrorBox, Loading, Message } from './Feedback'
+import { errorMessage } from '../lib/errors'
 
 /**
  * Runtime settings editor. Saved values go to <data-dir>/settings.yml and are
@@ -19,10 +21,13 @@ export function SettingsPanel() {
   const save = useMutation({
     mutationFn: () => api.saveSettings(draft!),
     onSuccess: (d) => { setDraft(structuredClone(d)); setMessage('저장했습니다. 새 작업부터 적용됩니다.'); qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }) },
-    onError: (e: Error) => setMessage(`저장 실패: ${e.message}`),
+    onError: (e: Error) => setMessage(`저장 실패: ${errorMessage(e)}`),
   })
 
-  if (!draft) return null
+  if (!draft) {
+    if (query.isError) return <ErrorBox title="서버 설정을 불러오지 못했습니다" message={errorMessage(query.error)} onRetry={() => query.refetch()} />
+    return <Loading label="서버 설정 불러오는 중…" />
+  }
   const d = draft
   const set = (patch: Partial<Settings>) => setDraft({ ...d, ...patch })
   const setModule = (name: string, patch: Partial<Settings['modules'][string]>) => setDraft({ ...d, modules: { ...d.modules, [name]: { ...d.modules[name], ...patch } } })
@@ -37,13 +42,13 @@ export function SettingsPanel() {
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="text-sm font-semibold">서버 설정</div>
-        <span className="text-xs text-slate-500">저장하면 즉시 반영 · <span className="mono">{d.settingsFile}</span></span>
-        <button onClick={() => save.mutate()} disabled={!dirty || save.isPending} className="ml-auto inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"><Save size={14} /> 설정 저장</button>
+        <span className="min-w-0 truncate text-xs text-slate-500" title={d.settingsFile}>저장하면 즉시 반영 · <span className="mono">{d.settingsFile}</span></span>
+        <button onClick={() => save.mutate()} disabled={!dirty || save.isPending} className="ml-auto inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"><Save size={14} /> {save.isPending ? '저장 중…' : '설정 저장'}</button>
         {dirty && <button onClick={() => setDraft(structuredClone(query.data!))} className="rounded-md border border-slate-300 px-2 py-1.5 text-xs dark:border-slate-700">되돌리기</button>}
-        {message && <span className="w-full text-xs text-slate-500">{message}</span>}
+        {message && <span className="w-full"><Message text={message} /></span>}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_1fr]">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
         <label className={label}>작업 공간 (AI가 읽고 수정하는 프로젝트 경로)
           <input value={d.workspace} onChange={(e) => set({ workspace: e.target.value })} className={`${input} mono`} />
         </label>

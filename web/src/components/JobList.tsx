@@ -1,5 +1,6 @@
 import type { Job } from '../lib/types'
 import { StatusBadge } from './StatusBadge'
+import { ConfirmButton } from './Feedback'
 import { formatDuration, formatTokens, progress } from '../lib/format'
 import { useNow } from '../lib/useNow'
 
@@ -12,7 +13,12 @@ export function JobList({ jobs, selectedId, onSelect, onCancel, onDelete }: {
 }) {
   const now = useNow()
   if (!jobs.length) {
-    return <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 dark:border-slate-700">아직 작업이 없습니다. Ctrl+K로 명령을 실행하세요.</div>
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 dark:border-slate-700">
+        <div>아직 작업이 없습니다.</div>
+        <div className="mt-1">상단의 <span className="font-medium text-slate-600 dark:text-slate-300">명령</span> 버튼이나 <kbd className="rounded border border-slate-300 px-1 text-[10px] dark:border-slate-600">Ctrl K</kbd>로 첫 작업을 실행하세요.</div>
+      </div>
+    )
   }
   return (
     <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
@@ -28,15 +34,15 @@ export function JobList({ jobs, selectedId, onSelect, onCancel, onDelete }: {
           >
             <div className="flex items-center gap-2">
               <StatusBadge status={job.status} />
-              <span className="mono truncate text-sm">{job.command}</span>
-              {job.candidates?.length > 0 && <span className={`shrink-0 rounded-full px-1.5 text-[10px] ${job.applied ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'}`}>{job.applied ? `후보 ${job.chosenCandidate} 적용` : `후보 ${job.candidates.length}개`}</span>}
-              <span className="ml-auto shrink-0 text-xs text-slate-500 tabular-nums">
+              <span className="mono min-w-0 flex-1 truncate text-sm" title={job.command}>{job.command}</span>
+              {job.candidates?.length > 0 && <span className={`hidden shrink-0 whitespace-nowrap rounded-full px-1.5 text-[10px] sm:inline ${job.applied ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'}`}>{job.applied ? `후보 ${job.chosenCandidate} 적용` : `후보 ${job.candidates.length}개`}</span>}
+              <span className="hidden shrink-0 whitespace-nowrap text-xs text-slate-500 tabular-nums sm:inline">
                 {formatTokens(job.usage.inputTokens + job.usage.outputTokens)} tok · {formatDuration(job.startedAt, job.finishedAt, now)}
               </span>
               {active ? (
-                <button onClick={(e) => { e.stopPropagation(); onCancel(job.id) }} className="shrink-0 rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300">취소</button>
+                <button onClick={(e) => { e.stopPropagation(); onCancel(job.id) }} className="shrink-0 whitespace-nowrap rounded border border-rose-300 px-2 py-0.5 text-xs text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950">취소</button>
               ) : (
-                <button onClick={(e) => { e.stopPropagation(); onDelete(job.id) }} className="shrink-0 rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 dark:border-slate-700">삭제</button>
+                <ConfirmButton label="삭제" confirmLabel="삭제 확인" onConfirm={() => onDelete(job.id)} className="border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" />
               )}
             </div>
             <div className="mt-1.5 flex items-center gap-2">
@@ -44,7 +50,8 @@ export function JobList({ jobs, selectedId, onSelect, onCancel, onDelete }: {
                 <div className={`h-full ${job.status === 'FAILED' || job.status === 'TIMEOUT' ? 'bg-rose-500' : 'bg-sky-500'}`} style={{ width: `${pct}%` }} />
               </div>
               <span className="w-8 text-right text-xs text-slate-500 tabular-nums">{pct}%</span>
-              {idleMs > 30_000 && <span className="text-xs text-amber-600">출력 없음 {Math.floor(idleMs / 1000)}s</span>}
+              <span className="text-xs text-slate-500 tabular-nums sm:hidden">{formatTokens(job.usage.inputTokens + job.usage.outputTokens)} tok · {formatDuration(job.startedAt, job.finishedAt, now)}</span>
+              {idleMs > 30_000 && <span className="whitespace-nowrap text-xs text-amber-600">출력 없음 {Math.floor(idleMs / 1000)}s</span>}
             </div>
           </li>
         )
