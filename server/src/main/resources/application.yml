@@ -7,6 +7,12 @@ spring:
   mvc:
     async:
       request-timeout: -1   # SSE streams stay open
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          no-cache: true    # always revalidate index.html so a redeployed bundle shows up without Ctrl+F5
+          must-revalidate: true
 
 orchestrator:
   # Jobs, logs and orchestrator.yml (routing) live here.
