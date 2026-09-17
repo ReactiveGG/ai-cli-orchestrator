@@ -122,8 +122,12 @@ class ProcessRunnerTest {
         assertEquals(List.of("unknown", "x"), ProcessRunner.launchCommand(List.of("unknown", "x"), true, resolver), "unresolved names are passed through");
         assertEquals(List.of("claude", "-p"), ProcessRunner.launchCommand(List.of("claude", "-p"), false, resolver), "no wrapping outside Windows");
 
-        // PATH resolution with Windows-style extensions
-        java.nio.file.Files.setPosixFilePermissions(shim, java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"));
+        // PATH resolution with Windows-style extensions (execute bit only exists on POSIX)
+        try {
+            java.nio.file.Files.setPosixFilePermissions(shim, java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"));
+        } catch (UnsupportedOperationException windows) {
+            // NTFS: every regular file is "executable" for Files.isExecutable
+        }
         assertEquals(java.util.Optional.of(shim), ProcessRunner.resolveExecutable("claude", dir.toString(), List.of("", ".exe", ".cmd")));
         assertEquals(java.util.Optional.empty(), ProcessRunner.resolveExecutable("claude", dir.toString(), List.of("", ".exe")));
     }
