@@ -46,10 +46,10 @@ web/     Vite + React 대시보드 (빌드 결과가 server에 번들됨)
 # 웹 의존성 (최초 1회)
 cd web && npm install && cd ..
 
-# 서버 + 웹 (http://localhost:8080)
+# 서버 + 웹 (http://localhost:47120)
 ./gradlew :server:bootRun
 
-# 프론트만 핫 리로드로 개발 (http://localhost:5173, /api 는 8080으로 프록시)
+# 프론트만 핫 리로드로 개발 (http://localhost:5173, /api 는 47120으로 프록시)
 cd web && npm run dev
 
 # 서버 없이 가짜 데이터로 화면만 보기 (mock 모드, 작업 실행이 브라우저 안에서 시뮬레이션됨)
@@ -119,10 +119,28 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
 
 서버가 재시작되면 실행 중이던 Job은 `FAILED`로 표시되고 로그는 디스크에 남는다.
 
+## 보안
+
+로컬 도구지만 브라우저를 통한 공격은 막아 두었다.
+
+| 장치 | 동작 |
+|---|---|
+| loopback 바인딩 | `server.address=127.0.0.1`. 다른 기기에서는 접속할 수 없다. 포트는 8080이 아닌 `47120`을 기본으로 쓴다 |
+| Host 검사 | `Host` 헤더가 localhost/127.0.0.1/[::1]가 아니면 403. DNS 리바인딩(공격 사이트 도메인이 127.0.0.1로 풀리는 수법) 차단 |
+| Origin 검사 | 다른 출처(`Origin`)에서 온 POST/PUT/DELETE는 403. 악성 페이지가 사용자 브라우저로 작업을 제출하거나 설정을 바꾸지 못한다 |
+| API 토큰 | 설치마다 무작위 토큰을 만들어 `<data-dir>/api-token`(소유자만 읽기)에 둔다. 모든 `/api` 요청은 `X-Orchestrator-Token` 헤더(또는 `Authorization: Bearer`, SSE는 `?token=`)로 이 값을 보내야 한다. 같은 출처의 웹 화면만 `GET /api/session`으로 토큰을 받을 수 있고, 다른 사이트는 CORS 때문에 그 응답을 읽지 못한다 |
+| 작업 공간 제한 | 화면에서 바꾸는 작업 공간은 `orchestrator.security.allowed-workspace-roots`(기본 홈 디렉터리) 아래여야 한다 |
+| 에이전트 권한 | 파일 수정은 코더 단계에만(`acceptEdits`), 나머지는 읽기 전용. 비대화형 Claude는 작업 공간 밖 파일 읽기와 허용 목록 밖 셸 명령을 자동 거부하므로 에이전트가 `~/.claude` 자격증명 등을 읽어 내보내는 경로가 막힌다 |
+
+이 서버는 API 키를 저장하지 않는다. Claude CLI가 자기 로그인(구독 또는 `ANTHROPIC_API_KEY`)을 쓰며, 서버는 그 키를 로그나 응답에 싣지 않는다. curl로 API를 부를 때는 `-H "X-Orchestrator-Token: $(cat ~/.ai-orchestrator/api-token)"`를 붙인다. 토큰이 불편하면 `orchestrator.security.require-token=false`로 끌 수 있지만 그러면 로컬의 어떤 프로세스든 API를 쓸 수 있다.
+
 ## 서버 설정 (`server/src/main/resources/application.yml`)
 
 | 키 | 의미 | 기본값 |
 |---|---|---|
+| `server.port` / `server.address` | 포트 / 바인드 주소 | 47120 / 127.0.0.1 |
+| `orchestrator.security.require-token` | `/api` 요청에 설치별 토큰 요구 | true |
+| `orchestrator.security.allowed-workspace-roots` | 작업 공간으로 허용할 루트 | `${user.home}` |
 | `orchestrator.data-dir` | Job 저장소와 `orchestrator.yml` 위치 | `~/.ai-orchestrator` |
 | `orchestrator.workspace` | AI CLI가 실행되는 디렉터리(수정 대상 코드) | 서버 실행 위치 |
 | `orchestrator.modules.<name>.mode` | `AUTO`(설치돼 있으면 CLI, 아니면 스텁) / `CLI` / `STUB` | `AUTO` |

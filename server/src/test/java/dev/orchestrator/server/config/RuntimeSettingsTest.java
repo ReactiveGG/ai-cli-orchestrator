@@ -22,7 +22,8 @@ class RuntimeSettingsTest {
         return new OrchestratorProperties(tempDir, tempDir, 2, Duration.ofMinutes(10), Duration.ofSeconds(60),
                 Map.of("claude", new OrchestratorProperties.ModuleSettings(ModuleMode.AUTO, "claude", List.of(), null, 2.0, List.of("Bash(git status*)"))),
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
-                new OrchestratorProperties.Isolation(true, List.of("node_modules"), true, false, 40_000, List.of("__pycache__")));
+                new OrchestratorProperties.Isolation(true, List.of("node_modules"), true, false, 40_000, List.of("__pycache__")),
+                new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null));
     }
 
     @Test
@@ -53,6 +54,22 @@ class RuntimeSettingsTest {
         assertTrue(!reloaded.isolation().autoApply());
         assertTrue(reloaded.isolation().keepWorktrees());
         assertEquals(List.of("*.pyc"), reloaded.isolation().exclude());
+    }
+
+    @Test
+    void workspaceMustStayUnderAllowedRoots() throws Exception {
+        RuntimeSettings settings = new RuntimeSettings(properties());
+        RuntimeSettings.Snapshot base = settings.current();
+        Path outside = Files.createTempDirectory("outside-root");
+        try {
+            IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                    () -> settings.update(new RuntimeSettings.Snapshot(outside.toString(), 2, 600, 60, base.modules(), base.isolation())));
+            assertTrue(error.getMessage().contains("허용된 루트"), error.getMessage());
+            Path inside = Files.createDirectories(tempDir.resolve("proj"));
+            assertEquals(inside.toString(), settings.update(new RuntimeSettings.Snapshot(inside.toString(), 2, 600, 60, base.modules(), base.isolation())).workspace());
+        } finally {
+            Files.deleteIfExists(outside);
+        }
     }
 
     @Test

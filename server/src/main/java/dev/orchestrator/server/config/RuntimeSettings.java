@@ -51,6 +51,9 @@ public class RuntimeSettings {
         this.file = defaults.dataDir().resolve("settings.yml");
         this.current = fromProperties(defaults);
         loadOverrides();
+        if (!isAllowedWorkspace(workspace())) {
+            log.warn("작업 공간 {} 이(가) 허용 루트 {} 밖에 있습니다. 화면에서 다른 경로로 바꿀 때 거부됩니다.", workspace(), allowedRoots());
+        }
     }
 
     public synchronized Snapshot current() {
@@ -117,6 +120,10 @@ public class RuntimeSettings {
         if (!Files.isDirectory(Path.of(workspace))) {
             throw new IllegalArgumentException("작업 공간 디렉터리가 없습니다: " + workspace);
         }
+        if (!isAllowedWorkspace(Path.of(workspace))) {
+            throw new IllegalArgumentException("작업 공간은 허용된 루트 아래에 있어야 합니다: " + workspace
+                    + " (허용 루트: " + allowedRoots() + ", orchestrator.security.allowed-workspace-roots 로 변경)");
+        }
         if (s.concurrency() < 1 || s.concurrency() > 16) {
             throw new IllegalArgumentException("동시 실행 수는 1~16 사이여야 합니다");
         }
@@ -142,6 +149,46 @@ public class RuntimeSettings {
                 s.isolation().enabled(), s.isolation().autoApply(), s.isolation().keepWorktrees(),
                 Math.max(1_000, s.isolation().maxPatchChars()), clean(s.isolation().linkDirs()), clean(s.isolation().exclude()));
         return new Snapshot(workspace, s.concurrency(), s.moduleTimeoutSeconds(), s.idleWarningSeconds(), modules, iso);
+    }
+
+    /** Roots a workspace may live under; from application.yml, {@code ${user.home}} by default. */
+    public List<Path> allowedRoots() {
+        OrchestratorProperties.Security sec = defaults.security();
+        List<Path> roots = new ArrayList<>();
+        if (sec != null && sec.allowedWorkspaceRoots() != null) {
+            for (String root : sec.allowedWorkspaceRoots()) {
+                if (root != null && !root.isBlank()) {
+                    roots.add(Path.of(root.trim()).toAbsolutePath().normalize());
+                }
+            }
+        }
+        return roots;
+    }
+
+    /** True when {@code workspace} (resolved through symlinks) is under an allowed root, or when no roots are configured. */
+    public boolean isAllowedWorkspace(Path workspace) {
+        List<Path> roots = allowedRoots();
+        if (roots.isEmpty()) {
+            return true;
+        }
+        Path real;
+        try {
+            real = workspace.toRealPath();
+        } catch (IOException e) {
+            real = workspace.toAbsolutePath().normalize();
+        }
+        for (Path root : roots) {
+            Path rootReal;
+            try {
+                rootReal = root.toRealPath();
+            } catch (IOException e) {
+                rootReal = root;
+            }
+            if (real.startsWith(rootReal)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<String> clean(List<String> items) {

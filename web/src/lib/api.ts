@@ -6,11 +6,34 @@ import { mockApi, mockSubscribe } from './mock'
 /** `vite --mode mock` (see .env.mock) swaps the server for an in-browser simulation. */
 export const MOCK = import.meta.env.VITE_MOCK === '1'
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+// ---- API token: generated per install, handed only to this same-origin page via /api/session.
+let token: string | null = null
+let tokenPromise: Promise<string> | null = null
+async function ensureToken(): Promise<string> {
+  if (MOCK) return ''
+  if (token !== null) return token
+  tokenPromise ??= fetch('/api/session').then(async (r) => {
+    const j = r.ok ? await r.json() : { tokenRequired: false, token: '' }
+    token = j.tokenRequired ? String(j.token) : ''
+    return token
+  }).catch(() => { token = ''; return '' })
+  return tokenPromise
+}
+/** Appends the token to a URL opened outside fetch (EventSource, new-tab links). */
+export function withToken(url: string): string {
+  return token ? `${url}${url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : url
+}
+
+async function request<T>(url: string, init?: RequestInit, retried = false): Promise<T> {
+  const t = await ensureToken()
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    headers: { 'Content-Type': 'application/json', ...(t ? { 'X-Orchestrator-Token': t } : {}), ...(init?.headers ?? {}) },
     ...init,
   })
+  if (res.status === 401 && !retried) {
+    token = null; tokenPromise = null   // token rotated (new data dir / config): fetch it again once
+    return request<T>(url, init, true)
+  }
   if (!res.ok) {
     let message = `${res.status} ${res.statusText}`
     try {
@@ -38,7 +61,8 @@ const realApi = {
   cancel: (id: string) => request<Job>(`/api/jobs/${id}/cancel`, { method: 'POST' }),
   applyCandidate: (id: string, candidate: number) => request<Job>(`/api/jobs/${id}/apply?candidate=${candidate}`, { method: 'POST' }),
   candidatePatch: async (id: string, candidate: number) => {
-    const res = await fetch(`/api/jobs/${id}/candidates/${candidate}/patch`)
+    const t = await ensureToken()
+    const res = await fetch(`/api/jobs/${id}/candidates/${candidate}/patch`, { headers: t ? { 'X-Orchestrator-Token': t } : {} })
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
     return res.text()
   },
@@ -47,7 +71,7 @@ const realApi = {
   routing: () => request<FlowConfig>('/api/config/routing'),
   saveRouting: (body: FlowConfig) => request<FlowConfig>('/api/config/routing', { method: 'PUT', body: JSON.stringify(body) }),
   resetRouting: (preset?: string) => request<FlowConfig>('/api/config/routing/reset', { method: 'POST', body: JSON.stringify(preset ? { preset } : {}) }),
-  routingYaml: async () => (await fetch('/api/config/routing.yaml')).text(),
+  routingYaml: async () => { const t = await ensureToken(); return (await fetch('/api/config/routing.yaml', { headers: t ? { 'X-Orchestrator-Token': t } : {} })).text() },
   settings: () => request<Settings>('/api/config/settings'),
   saveSettings: (body: Settings) => request<Settings>('/api/config/settings', { method: 'PUT', body: JSON.stringify(body) }),
 }
@@ -60,18 +84,23 @@ function realSubscribe(
   handlers: Record<string, (data: unknown) => void>,
   onError?: () => void,
 ): () => void {
-  const source = new EventSource(url)
-  for (const [name, handler] of Object.entries(handlers)) {
-    source.addEventListener(name, (event) => {
-      try {
-        handler(JSON.parse((event as MessageEvent).data))
-      } catch {
-        // ignore malformed frames
-      }
-    })
-  }
-  source.onerror = () => onError?.()
-  return () => source.close()
+  let source: EventSource | null = null
+  let closed = false
+  ensureToken().then(() => {
+    if (closed) return
+    source = new EventSource(withToken(url))   // EventSource cannot set headers, so the token travels as ?token=
+    for (const [name, handler] of Object.entries(handlers)) {
+      source.addEventListener(name, (event) => {
+        try {
+          handler(JSON.parse((event as MessageEvent).data))
+        } catch {
+          // ignore malformed frames
+        }
+      })
+    }
+    source.onerror = () => onError?.()
+  })
+  return () => { closed = true; source?.close() }
 }
 
 export const subscribe: typeof realSubscribe = MOCK ? (url, handlers) => mockSubscribe(url, handlers) : realSubscribe

@@ -27,7 +27,8 @@ public record OrchestratorProperties(
         @DefaultValue("60s") Duration idleWarning,
         @DefaultValue Map<String, ModuleSettings> modules,
         @DefaultValue Status status,
-        @DefaultValue Isolation isolation
+        @DefaultValue Isolation isolation,
+        @DefaultValue Security security
 ) {
     /**
      * @param model        model alias/name passed to the CLI ({@code --model}), null = CLI default
@@ -63,6 +64,22 @@ public record OrchestratorProperties(
             @DefaultValue("40000") int maxPatchChars,
             @DefaultValue({"__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"}) List<String> exclude
     ) {
+    }
+
+    /**
+     * @param allowedWorkspaceRoots the workspace (what agents may read and edit) must lie under one of these
+     * @param requireToken          every /api request must present the API token (auto-generated per install)
+     * @param token                 fixed token instead of the auto-generated one; empty = auto
+     */
+    public record Security(
+            @DefaultValue("${user.home}") List<String> allowedWorkspaceRoots,
+            @DefaultValue("true") boolean requireToken,
+            String token
+    ) {
+    }
+
+    public Path tokenFile() {
+        return dataDir.resolve("api-token");
     }
 
     public record Status(

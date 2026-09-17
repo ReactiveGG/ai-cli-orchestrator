@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { JobEvent, LogLevel } from '../lib/types'
 import { formatTime } from '../lib/format'
+import { withToken } from '../lib/api'
 
 /** Two tabs over one event stream: 요약 (SUMMARY) and 상세 (DETAIL). */
 export function LogView({ events, jobId }: { events: JobEvent[]; jobId: string }) {
@@ -42,7 +43,7 @@ export function LogView({ events, jobId }: { events: JobEvent[]; jobId: string }
           <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} /> 따라가기
         </label>
         <a
-          href={`/api/jobs/${jobId}/logs/file?level=${level}`}
+          href={withToken(`/api/jobs/${jobId}/logs/file?level=${level}`)}
           target="_blank"
           rel="noreferrer"
           className="text-xs text-sky-600 hover:underline"

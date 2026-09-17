@@ -1,5 +1,6 @@
 server:
-  port: 8080
+  port: 47120           # deliberately not 8080: avoids clashes with other local servers
+  address: 127.0.0.1    # local tool: never listen on other interfaces
 
 spring:
   application:
@@ -62,6 +63,14 @@ orchestrator:
     max-patch-chars: 40000
     link-dirs: [node_modules, .venv, venv, target, build, .gradle]
     exclude: ["__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"]   # never captured into a candidate
+  security:
+    # The workspace agents read and edit must be under one of these roots (the UI refuses others).
+    allowed-workspace-roots: ["${user.home}"]
+    # Every /api request must carry the install's token (X-Orchestrator-Token header, Bearer, or ?token=).
+    # It is generated once into <data-dir>/api-token and handed only to the same-origin web page via
+    # GET /api/session. Non-loopback Host headers and cross-site writes are refused regardless.
+    require-token: true
+    token: ""            # set a fixed value instead of the generated one, if you prefer
   status:
     anthropic-status-url: https://status.claude.com/api/v2/status.json
     cache-ttl: 60s
