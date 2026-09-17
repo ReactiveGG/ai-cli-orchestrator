@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import {
   ReactFlow, ReactFlowProvider, Background, MarkerType, Position, useNodesState, useEdgesState, useReactFlow,
   type Node, type Edge,
@@ -24,7 +24,15 @@ const NODE_H = 48
  * Nodes carry explicit sizes and the view is re-fitted whenever the steps
  * change, so live status updates never push the graph out of view.
  */
-export function FlowDiagram({ steps, height = 220 }: { steps: FlowStep[]; height?: number }) {
+const shapeKey = (steps: FlowStep[]) => steps.map((s) => `${s.id}:${s.label}:${s.module ?? ''}:${s.status ?? ''}`).join('|')
+
+/**
+ * Memoised on the graph's shape (ids, labels, modules, statuses) so the
+ * hundreds of log events a running job emits never re-render the diagram.
+ */
+export const FlowDiagram = memo(FlowDiagramImpl, (a, b) => a.height === b.height && shapeKey(a.steps) === shapeKey(b.steps))
+
+function FlowDiagramImpl({ steps, height = 220 }: { steps: FlowStep[]; height?: number }) {
   if (!steps.length) {
     return <div className="flex h-24 items-center justify-center text-sm text-slate-400">단계 정보가 아직 없습니다</div>
   }
@@ -43,8 +51,8 @@ function Diagram({ steps }: { steps: FlowStep[] }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(laidOutEdges)
   const { fitView } = useReactFlow()
 
-  // Shape key: ids + statuses. Re-fit only when the graph actually changes.
-  const shape = steps.map((s) => `${s.id}:${s.status ?? ''}`).join('|')
+  // Re-fit only when the graph actually changes.
+  const shape = shapeKey(steps)
   useEffect(() => {
     setNodes(laidOut)
     setEdges(laidOutEdges)
