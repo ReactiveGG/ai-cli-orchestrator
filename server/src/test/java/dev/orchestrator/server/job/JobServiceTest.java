@@ -141,8 +141,16 @@ class JobServiceTest {
         assertTrue(Files.isRegularFile(tempDir.resolve("jobs").resolve(done.id()).resolve("candidates").resolve("c3.patch")));
         assertFalse(Files.exists(tempDir.resolve("worktrees").resolve(done.id())), "worktrees cleaned up");
 
+        List<JobEvent> summaryBefore = service.events(done.id(), 0, JobEventLevel.SUMMARY);
+        List<JobEvent> detailBefore = service.events(done.id(), 0, JobEventLevel.DETAIL);
         JobService reloaded = new JobService(orchestration, new JobStore(tempDir.resolve("jobs")), 1);
         assertEquals(3, reloaded.get(done.id()).candidates().size(), "candidates survive a restart");
+        List<JobEvent> summaryAfter = reloaded.events(done.id(), 0, JobEventLevel.SUMMARY);
+        List<JobEvent> detailAfter = reloaded.events(done.id(), 0, JobEventLevel.DETAIL);
+        assertEquals(summaryBefore.stream().map(JobEvent::message).toList(), summaryAfter.stream().map(JobEvent::message).toList(), "summary log restored from disk");
+        assertEquals(detailBefore.size(), detailAfter.size(), "detail log restored from disk");
+        assertEquals(summaryBefore.stream().map(JobEvent::stepId).toList(), summaryAfter.stream().map(JobEvent::stepId).toList());
+        assertTrue(summaryAfter.stream().mapToLong(JobEvent::seq).allMatch(seq -> seq > 0));
         reloaded.shutdown();
     }
 

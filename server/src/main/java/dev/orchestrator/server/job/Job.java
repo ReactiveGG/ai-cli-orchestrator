@@ -49,6 +49,15 @@ public final class Job {
         this.createdAt = createdAt;
     }
 
+    /** Rebuilds a job from a persisted snapshot plus the events read back from its log files. */
+    public static Job fromSnapshot(JobSnapshot snapshot, List<JobEvent> restoredEvents) {
+        Job job = fromSnapshot(snapshot);
+        job.events.addAll(restoredEvents);
+        job.seq = restoredEvents.isEmpty() ? job.seq : restoredEvents.get(restoredEvents.size() - 1).seq();
+        job.droppedEvents = 0;
+        return job;
+    }
+
     /** Rebuilds a job from a persisted snapshot (used at startup). */
     public static Job fromSnapshot(JobSnapshot snapshot) {
         ExecutionRequest request = new ExecutionRequest(

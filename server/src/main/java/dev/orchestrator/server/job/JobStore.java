@@ -92,6 +92,52 @@ public final class JobStore {
         }
     }
 
+    /**
+     * Rebuilds a job's events from its log files (used when jobs are restored
+     * after a restart). Lines are {@code <ISO timestamp> <stepId|-> <message>};
+     * summary and detail lines are merged in timestamp order and re-numbered.
+     * Only the newest {@link Job#MAX_EVENTS_IN_MEMORY} are kept.
+     */
+    public List<JobEvent> readEvents(String jobId) {
+        List<JobEvent> events = new ArrayList<>();
+        for (JobEventLevel level : JobEventLevel.values()) {
+            for (String line : readLog(jobId, level)) {
+                JobEvent parsed = parseLine(jobId, level, line);
+                if (parsed != null) {
+                    events.add(parsed);
+                }
+            }
+        }
+        events.sort(Comparator.comparing(JobEvent::at));
+        if (events.size() > Job.MAX_EVENTS_IN_MEMORY) {
+            events = new ArrayList<>(events.subList(events.size() - Job.MAX_EVENTS_IN_MEMORY, events.size()));
+        }
+        List<JobEvent> numbered = new ArrayList<>(events.size());
+        long seq = 0;
+        for (JobEvent e : events) {
+            numbered.add(new JobEvent(++seq, e.at(), e.jobId(), e.level(), e.stepId(), e.message()));
+        }
+        return numbered;
+    }
+
+    private static JobEvent parseLine(String jobId, JobEventLevel level, String line) {
+        int firstSpace = line.indexOf(' ');
+        if (firstSpace < 0) {
+            return null;
+        }
+        int secondSpace = line.indexOf(' ', firstSpace + 1);
+        String ts = line.substring(0, firstSpace);
+        String stepId = secondSpace < 0 ? line.substring(firstSpace + 1) : line.substring(firstSpace + 1, secondSpace);
+        String message = secondSpace < 0 ? "" : line.substring(secondSpace + 1).replace("\\n", "\n");
+        java.time.Instant at;
+        try {
+            at = java.time.Instant.parse(ts);
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+        return new JobEvent(0, at, jobId, level, "-".equals(stepId) ? null : stepId, message);
+    }
+
     /** Reads a whole log file back (for jobs whose events fell out of memory). */
     public List<String> readLog(String jobId, JobEventLevel level) {
         Path file = dir(jobId).resolve(level == JobEventLevel.SUMMARY ? "summary.log" : "detail.log");

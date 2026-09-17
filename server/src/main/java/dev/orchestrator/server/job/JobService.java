@@ -69,7 +69,7 @@ public class JobService {
             return thread;
         });
         for (JobSnapshot snapshot : store.loadAll()) {
-            Job job = Job.fromSnapshot(snapshot);
+            Job job = Job.fromSnapshot(snapshot, store.readEvents(snapshot.id()));
             if (!snapshot.status().isTerminal()) {
                 job.finish(JobStatus.FAILED, "서버가 재시작되어 중단됨", null);
                 store.save(job.snapshot());
@@ -97,7 +97,7 @@ public class JobService {
         Job job = new Job(id, request);
         job.setFlowLabel(flow.label());
         jobs.put(id, job);
-        job.addEvent(JobEventLevel.SUMMARY, null, "대기열에 추가됨: " + JobRequest.display(request));
+        emit(job, JobEventLevel.SUMMARY, null, "대기열에 추가됨: " + JobRequest.display(request));
         store.save(job.snapshot());
         bus.publishJob(job.snapshot());
         futures.put(id, executor.submit(() -> run(job)));
@@ -128,7 +128,7 @@ public class JobService {
         job.requestCancel();
         Future<?> future = futures.get(id);
         if (job.status() == JobStatus.QUEUED && future != null && future.cancel(false)) {
-            job.addEvent(JobEventLevel.SUMMARY, null, "대기 중 취소됨");
+            emit(job, JobEventLevel.SUMMARY, null, "대기 중 취소됨");
             job.finish(JobStatus.CANCELLED, "사용자 취소", null);
             store.save(job.snapshot());
             store.close(id);
