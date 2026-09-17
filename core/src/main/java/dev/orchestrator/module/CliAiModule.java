@@ -2,6 +2,7 @@ package dev.orchestrator.module;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.orchestrator.domain.AgentOptions;
 import dev.orchestrator.domain.AiModule;
 import dev.orchestrator.domain.CompiledPrompt;
 import dev.orchestrator.domain.ExecutionContext;
@@ -37,7 +38,7 @@ public abstract class CliAiModule implements AiModule {
     }
 
     /** Full argv, without the prompt (the prompt is written to stdin). */
-    protected abstract List<String> command(CompiledPrompt prompt, ExecutionRequest request);
+    protected abstract List<String> command(CompiledPrompt prompt, ExecutionRequest request, AgentOptions options);
 
     /** Arguments that must come last (variadic flags such as {@code --allowedTools}). */
     protected List<String> trailingArgs() {
@@ -49,7 +50,7 @@ public abstract class CliAiModule implements AiModule {
 
     @Override
     public ExecutionResult execute(CompiledPrompt prompt, ExecutionRequest request, ExecutionContext context) {
-        List<String> argv = new ArrayList<>(command(prompt, request));
+        List<String> argv = new ArrayList<>(command(prompt, request, context.options()));
         argv.addAll(settings.extraArgs());
         argv.addAll(trailingArgs());
 

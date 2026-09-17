@@ -78,6 +78,7 @@ cd web && npm run dev:mock
 구성 화면에는 프리셋 목록, 모델 블록(claude, codex), 그리고 고정된 4개 단계 칸(플래너 | 코더 | 리뷰어 | 검증자)이 있다.
 
 - 모델 블록을 단계 칸에 놓을 때마다 그 단계의 에이전트가 하나 늘어난다. 같은 모델을 여러 번 놓아도 된다(1-3-3-1은 claude 3개).
+- 칩마다 **사용 모델**(`--model`: fable/opus/sonnet/haiku 별칭 또는 전체 이름)과 **에포트**(`--effort`: low/medium/high/xhigh/max)를 정할 수 있다. 비우면 CLI 기본값이다.
 - 칸을 비우면 프리셋의 기본 모델 1개로 돈다. 칩을 다른 칸으로 끌어 옮길 수 있다.
 - 프리셋 이름 옆에 `1-1-2-1` 같은 서명이 자동으로 붙는다. 프리셋은 추가(현재 것 복사)/복제/삭제한다.
 - 단계별 역할 지시문(플래너/코더/리뷰어/검증자)은 모든 프리셋에 공통이며 "단계별 역할 지시문"에서 고친다. 리뷰어와 검증자 지시문에는 후보가 여러 개일 때 비교·선택하라는 내용이 들어 있다.
@@ -94,8 +95,9 @@ flows:
       - role: planner
       - role: coder
       - role: reviewer
-        models: [claude, claude]     # 1-1-2-1
+        models: [claude, claude:sonnet]            # 1-1-2-1, 두 번째 리뷰어는 sonnet
       - role: verifier
+        models: [{ module: claude, model: opus, effort: high }]   # 또는 claude:opus/high
 roles:                               # 지시문 덮어쓰기
   reviewer:
     instructions: "역할: 리뷰어. ..."

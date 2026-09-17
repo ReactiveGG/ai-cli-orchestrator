@@ -23,11 +23,15 @@ public record FlowConfigDto(
         Map<String, RoleDto> roles,
         Map<String, String> fallback
 ) {
+    /** One agent of a stage: which tool runs it and, optionally, which model variant and effort. */
+    public record AgentDto(String module, String model, String effort) {
+    }
+
     /**
-     * @param role   role every model in this stage plays ({@code executor} = prompt as is)
-     * @param models models that run this stage in parallel; empty = the flow's defaultModule
+     * @param role   role every agent in this stage plays ({@code executor} = prompt as is)
+     * @param models agents that run this stage in parallel; empty = one run on the flow's defaultModule
      */
-    public record StageDto(String name, String role, List<String> models) {
+    public record StageDto(String name, String role, List<AgentDto> models) {
     }
 
     public record FlowDto(String label, String task, String defaultModule, List<StageDto> stages) {
@@ -43,7 +47,8 @@ public record FlowConfigDto(
                 flow.taskType().name().toLowerCase(Locale.ROOT),
                 flow.defaultModule(),
                 flow.stages().stream().map(stage -> new StageDto(stage.name(),
-                        stage.role() == null ? "executor" : stage.role(), stage.models())).toList())));
+                        stage.role() == null ? "executor" : stage.role(),
+                        stage.agents().stream().map(a -> new AgentDto(a.module(), a.model(), a.effort())).toList())).toList())));
         Map<String, RoleDto> roles = new LinkedHashMap<>();
         config.roles().forEach((name, role) -> roles.put(name,
                 new RoleDto(role.labelKo(), role.instructions(), AgentRole.BUILT_IN.containsKey(name))));
@@ -68,12 +73,13 @@ public record FlowConfigDto(
                 for (StageDto stage : dto.stages() == null ? List.<StageDto>of() : dto.stages()) {
                     index++;
                     String role = stage.role() == null || stage.role().isBlank() ? "executor" : stage.role();
-                    List<String> models = stage.models() == null || stage.models().isEmpty()
-                            ? (dto.defaultModule() == null ? List.<String>of() : List.of(dto.defaultModule()))
+                    List<AgentDto> models = stage.models() == null || stage.models().isEmpty()
+                            ? (dto.defaultModule() == null ? List.<AgentDto>of() : List.of(new AgentDto(dto.defaultModule(), null, null)))
                             : stage.models();
                     List<AgentSpec> agents = new ArrayList<>();
-                    for (String model : models) {
-                        agents.add(new AgentSpec(role, model));
+                    for (AgentDto a : models) {
+                        String module = a.module() == null || a.module().isBlank() ? dto.defaultModule() : a.module();
+                        agents.add(new AgentSpec(role, module, a.model(), a.effort()));
                     }
                     AgentRole known = roleMap.containsKey(role) ? roleMap.get(role) : AgentRole.BUILT_IN.get(role);
                     String stageName = stage.name() == null || stage.name().isBlank() ? (known == null ? role : known.labelKo()) : stage.name();
@@ -109,7 +115,22 @@ public record FlowConfigDto(
                     Map<String, Object> stageNode = new LinkedHashMap<>();
                     stageNode.put("role", stage.role() == null || stage.role().isBlank() ? "executor" : stage.role());
                     if (stage.models() != null && !stage.models().isEmpty()) {
-                        stageNode.put("models", stage.models());
+                        stageNode.put("models", stage.models().stream().map(a -> {
+                            String module = a.module() == null || a.module().isBlank() ? dto.defaultModule() : a.module();
+                            boolean plain = (a.model() == null || a.model().isBlank()) && (a.effort() == null || a.effort().isBlank());
+                            if (plain) {
+                                return (Object) module;
+                            }
+                            Map<String, Object> agentNode = new LinkedHashMap<>();
+                            agentNode.put("module", module);
+                            if (a.model() != null && !a.model().isBlank()) {
+                                agentNode.put("model", a.model());
+                            }
+                            if (a.effort() != null && !a.effort().isBlank()) {
+                                agentNode.put("effort", a.effort());
+                            }
+                            return (Object) agentNode;
+                        }).toList());
                     }
                     AgentRole known = AgentRole.BUILT_IN.get(stageNode.get("role"));
                     if (stage.name() != null && !stage.name().isBlank() && (known == null || !known.labelKo().equals(stage.name()))) {

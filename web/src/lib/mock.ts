@@ -2,7 +2,7 @@
 // (see .env.mock). Same shapes as the real API; jobs run on a timer so the UI
 // shows progress, streaming logs and cancellation without any backend.
 import type {
-  Catalog, Dashboard, FlowConfig, FlowDto, FlowInfo, Job, JobEvent, JobRequest, JobStep, LogLevel, PlanStep, StageDto, Settings, StatusReport, TokenUsage,
+  AgentDto, Catalog, Dashboard, FlowConfig, FlowDto, FlowInfo, Job, JobEvent, JobRequest, JobStep, LogLevel, PlanStep, StageDto, Settings, StatusReport, TokenUsage,
 } from './types'
 
 const OPTIONS: Catalog['options'] = [
@@ -39,9 +39,11 @@ const DETAIL: Record<string, string[]> = {
 const CONCURRENCY = 2
 const KEY = 'orch-mock-flows'
 
-const st = (role: string, models: string[] = []): StageDto => ({ name: null, role, models })
+const ag = (module: string, model: string | null = null, effort: string | null = null): AgentDto => ({ module, model, effort })
+const st = (role: string, models: AgentDto[] = []): StageDto => ({ name: null, role, models })
 const PIPELINE = ['planner', 'coder', 'reviewer', 'verifier']
-const preset = (label: string, module: string, counts: number[]): FlowDto => ({ label, task: 'custom', defaultModule: module, stages: PIPELINE.map((r, i) => st(r, Array(counts[i] ?? 1).fill(module))) })
+const preset = (label: string, module: string, counts: number[]): FlowDto => ({ label, task: 'custom', defaultModule: module, stages: PIPELINE.map((r, i) => st(r, Array.from({ length: counts[i] ?? 1 }, () => ag(module)))) })
+const describeAgent = (a: AgentDto) => a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module
 function singleConfig(module: string): FlowConfig {
   return {
     flows: {
@@ -68,11 +70,11 @@ const listeners = new Map<string, Set<Listener>>()
 interface MockJob extends Job { events: JobEvent[]; ticks: number; stuck?: boolean }
 const jobs: MockJob[] = []
 
-const modelsOf = (s: StageDto, flow: FlowDto) => (s.models.length ? s.models : [flow.defaultModule ?? 'claude'])
+const modelsOf = (s: StageDto, flow: FlowDto): AgentDto[] => (s.models.length ? s.models : [ag(flow.defaultModule ?? 'claude')])
 const stageLabel = (s: StageDto) => s.name ?? config.roles[s.role]?.label ?? s.role
 const passThrough = (role: string) => !(config.roles[role]?.instructions ?? '').trim()
 function describe(flow: FlowDto): string {
-  return flow.stages.map((s) => `${stageLabel(s)}(${modelsOf(s, flow).join(' ∥ ')})`).join(' → ')
+  return flow.stages.map((s) => `${stageLabel(s)}(${modelsOf(s, flow).map(describeAgent).join(' ∥ ')})`).join(' → ')
 }
 function flowInfo(name: string, flow: FlowDto): FlowInfo {
   return { name, label: flow.label ?? name, signature: signatureOf(flow), task: flow.task ?? 'custom', description: describe(flow), stages: flow.stages.map((s) => ({ name: stageLabel(s), role: s.role, models: modelsOf(s, flow) })), defaultFocus: DEFAULT_FOCUS[flow.task ?? 'custom'] ?? DEFAULT_FOCUS.custom }
@@ -86,12 +88,13 @@ function planFor(flowName: string): PlanStep[] {
     const ids: string[] = []
     const seen = new Map<string, number>()
     const role = passThrough(stage.role) ? null : stage.role
-    for (const m of modelsOf(stage, flow)) {
+    for (const a of modelsOf(stage, flow)) {
+      const m = a.module
       const key = role ? `${role}@${m}` : m
       const dup = seen.get(key) ?? 0
       seen.set(key, dup + 1)
       const id = `s${si + 1}/${key}${dup ? `#${dup}` : ''}`
-      steps.push({ id, label: `${stageLabel(stage)} (${m})`, moduleName: m, role, stage: si + 1, dependsOn: prev })
+      steps.push({ id, label: `${stageLabel(stage)} (${describeAgent(a)})`, moduleName: m, role, stage: si + 1, dependsOn: prev })
       ids.push(id)
     }
     prev = ids
@@ -280,7 +283,7 @@ export const mockApi = {
     let y = 'flows:\n'
     for (const [n, f] of Object.entries(config.flows)) {
       y += `  ${n}:\n    label: ${f.label ?? n}\n` + (f.defaultModule ? `    defaultModule: ${f.defaultModule}\n` : '') + '    stages:\n'
-      for (const s of f.stages) y += `      - role: ${s.role}\n` + (s.models.length ? `        models: [${s.models.join(', ')}]\n` : '')
+      for (const s of f.stages) y += `      - role: ${s.role}\n` + (s.models.length ? `        models: [${s.models.map((a) => a.model || a.effort ? `${a.module}${a.model ? ':' + a.model : ''}${a.effort ? '/' + a.effort : ''}` : a.module).join(', ')}]\n` : '')
     }
     y += Object.keys(config.fallback).length ? 'fallback:\n' + Object.entries(config.fallback).map(([k, v]) => `  ${k}: ${v}`).join('\n') + '\n' : 'fallback: {}\n'
     return y

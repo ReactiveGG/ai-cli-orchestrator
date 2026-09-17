@@ -18,7 +18,10 @@ public class CatalogController {
     public record RoleInfo(String name, String label, String instructions) {
     }
 
-    public record StageInfo(String name, String role, List<String> models) {
+    public record AgentInfo(String module, String model, String effort) {
+    }
+
+    public record StageInfo(String name, String role, List<AgentInfo> models) {
     }
 
     public record FlowInfo(String name, String label, String signature, String task, String description, List<StageInfo> stages, List<String> defaultFocus) {
@@ -57,7 +60,8 @@ public class CatalogController {
                 .orElse(List.of("requirements", "risks", "verification"));
         return new FlowInfo(flow.name(), flow.label(), flow.signature(), flow.taskType().name().toLowerCase(Locale.ROOT), flow.describe(),
                 flow.stages().stream().map(stage -> new StageInfo(stage.name(),
-                        stage.role() == null ? "executor" : stage.role(), stage.models())).toList(),
+                        stage.role() == null ? "executor" : stage.role(),
+                        stage.agents().stream().map(a -> new AgentInfo(a.module(), a.model(), a.effort())).toList())).toList(),
                 focus);
     }
 }

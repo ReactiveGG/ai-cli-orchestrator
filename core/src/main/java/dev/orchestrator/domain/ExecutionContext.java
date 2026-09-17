@@ -21,6 +21,11 @@ public interface ExecutionContext {
     /** After this much silence the module should emit a warning via {@link #summary}. */
     Duration idleWarning();
 
+    /** Model/effort chosen for this agent in the preset. */
+    default AgentOptions options() {
+        return AgentOptions.NONE;
+    }
+
     static ExecutionContext noop() {
         return new ExecutionContext() {
             @Override

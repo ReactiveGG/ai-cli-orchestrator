@@ -18,8 +18,14 @@ public record ExecutionStep(String id, String label, String moduleName, String r
      *                       values get a {@code #n} suffix so ids stay unique
      */
     public static ExecutionStep agent(int stage, int duplicateIndex, String stageName, String role, String roleLabel, String module, List<String> dependsOn) {
+        return agent(stage, duplicateIndex, stageName, role, roleLabel, module, null, null, dependsOn);
+    }
+
+    public static ExecutionStep agent(int stage, int duplicateIndex, String stageName, String role, String roleLabel, String module,
+                                      String model, String effort, List<String> dependsOn) {
         String id = "s" + stage + "/" + (role == null ? module : role + "@" + module) + (duplicateIndex > 0 ? "#" + duplicateIndex : "");
-        String label = (role == null ? stageName : (roleLabel == null ? role : roleLabel)) + " (" + module + ")";
+        String variant = model == null && effort == null ? "" : " " + (model == null ? "" : model) + (effort == null ? "" : "/" + effort);
+        String label = (role == null ? stageName : (roleLabel == null ? role : roleLabel)) + " (" + module + variant.replace(" /", " ") + ")";
         return new ExecutionStep(id, label, module, role, stage, List.copyOf(dependsOn));
     }
 

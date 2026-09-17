@@ -31,7 +31,13 @@ public record StageDefinition(String name, List<AgentSpec> agents) {
         return agents.stream().allMatch(a -> java.util.Objects.equals(a.role(), first)) ? first : null;
     }
 
+    /** Module names, one per agent (duplicates kept). */
     public List<String> models() {
         return agents.stream().map(AgentSpec::module).toList();
+    }
+
+    /** {@code claude opus/high ∥ claude sonnet}. */
+    public String describeAgents() {
+        return String.join(" ∥ ", agents.stream().map(AgentSpec::describeModel).toList());
     }
 }

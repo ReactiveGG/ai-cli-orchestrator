@@ -1,6 +1,7 @@
 package dev.orchestrator.module;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.orchestrator.domain.AgentOptions;
 import dev.orchestrator.domain.CompiledPrompt;
 import dev.orchestrator.domain.ExecutionContext;
 import dev.orchestrator.domain.ExecutionRequest;
@@ -22,8 +23,14 @@ public final class CodexCliModule extends CliAiModule {
     }
 
     @Override
-    protected List<String> command(CompiledPrompt prompt, ExecutionRequest request) {
-        return List.of(settings.command(), "exec", "--json", "-");
+    protected List<String> command(CompiledPrompt prompt, ExecutionRequest request, AgentOptions options) {
+        List<String> argv = new java.util.ArrayList<>(List.of(settings.command(), "exec", "--json"));
+        if (options.model() != null) {
+            argv.add("--model");
+            argv.add(options.model());
+        }
+        argv.add("-");
+        return argv;
     }
 
     @Override

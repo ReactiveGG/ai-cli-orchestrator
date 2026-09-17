@@ -19,8 +19,8 @@ class FlowConfigDtoTest {
         FlowConfigDto dto = new FlowConfigDto(
                 Map.of("ship", new FlowConfigDto.FlowDto("배포 준비", "custom", "claude", List.of(
                         new FlowConfigDto.StageDto(null, "planner", List.of()),
-                        new FlowConfigDto.StageDto("리뷰 2인", "reviewer", List.of("claude", "codex")),
-                        new FlowConfigDto.StageDto(null, "executor", List.of("codex"))))),
+                        new FlowConfigDto.StageDto("리뷰 2인", "reviewer", List.of(new FlowConfigDto.AgentDto("claude", "opus", "high"), new FlowConfigDto.AgentDto("codex", null, null))),
+                        new FlowConfigDto.StageDto(null, "executor", List.of(new FlowConfigDto.AgentDto("codex", null, null)))))),
                 Map.of("reviewer", new FlowConfigDto.RoleDto("리뷰어", "custom", true)),
                 Map.of("claude", "codex"));
 
@@ -34,6 +34,9 @@ class FlowConfigDtoTest {
             assertEquals(List.of("planner@claude"), ship.stages().get(0).agents().stream().map(AgentSpec::label).toList());
             assertEquals("리뷰 2인", ship.stages().get(1).name());
             assertEquals(List.of("reviewer@claude", "reviewer@codex"), ship.stages().get(1).agents().stream().map(AgentSpec::label).toList());
+            assertEquals("opus", ship.stages().get(1).agents().get(0).model());
+            assertEquals("high", ship.stages().get(1).agents().get(0).effort());
+            assertEquals("claude opus/high ∥ codex", ship.stages().get(1).describeAgents());
             assertEquals("executor", ship.stages().get(2).role());
             assertEquals(List.of("codex"), ship.stages().get(2).models());
             assertEquals("custom", config.role("reviewer").instructions());
@@ -41,7 +44,8 @@ class FlowConfigDtoTest {
         }
         FlowConfigDto back = FlowConfigDto.from(parsed);
         assertEquals("reviewer", back.flows().get("ship").stages().get(1).role());
-        assertEquals(List.of("claude", "codex"), back.flows().get("ship").stages().get(1).models());
+        assertEquals("opus", back.flows().get("ship").stages().get(1).models().get(0).model());
+        assertEquals("codex", back.flows().get("ship").stages().get(1).models().get(1).module());
         assertTrue(back.roles().get("executor").builtIn());
         assertEquals("1-2-1", back.flows().get("ship").stages().stream().map(st -> String.valueOf(st.models().size())).reduce((a, b) -> a + "-" + b).orElse(""));
     }
@@ -49,7 +53,7 @@ class FlowConfigDtoTest {
     @Test
     void rejectsUnknownRole() {
         FlowConfigDto dto = new FlowConfigDto(
-                Map.of("x", new FlowConfigDto.FlowDto(null, null, "claude", List.of(new FlowConfigDto.StageDto(null, "ghost", List.of("claude"))))),
+                Map.of("x", new FlowConfigDto.FlowDto(null, null, "claude", List.of(new FlowConfigDto.StageDto(null, "ghost", List.of(new FlowConfigDto.AgentDto("claude", null, null)))))),
                 Map.of(), Map.of());
 
         assertThrows(IllegalArgumentException.class, dto::toConfig);

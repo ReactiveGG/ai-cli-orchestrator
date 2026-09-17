@@ -30,8 +30,8 @@ class FlowConfigTest {
                       - role: planner
                       - role: coder
                       - role: reviewer
-                        models: [claude, codex]
-                      - { role: verifier, models: [claude], name: 최종 검증 }
+                        models: [claude:opus/high, codex]
+                      - { role: verifier, models: [{ module: claude, model: sonnet, effort: max }], name: 최종 검증 }
                   legacy:
                     stages:
                       - name: 실행
@@ -49,6 +49,11 @@ class FlowConfigTest {
         assertEquals("1-1-2-1", preset.signature());
         assertEquals(List.of("플래너", "코더", "리뷰어", "최종 검증"), preset.stages().stream().map(s -> s.name()).toList());
         assertEquals(List.of("reviewer@claude", "reviewer@codex"), preset.stages().get(2).agents().stream().map(AgentSpec::label).toList());
+        assertEquals("opus", preset.stages().get(2).agents().get(0).model());
+        assertEquals("high", preset.stages().get(2).agents().get(0).effort());
+        assertEquals("sonnet", preset.stages().get(3).agents().get(0).model());
+        assertEquals("max", preset.stages().get(3).agents().get(0).effort());
+        assertEquals("리뷰어(claude opus/high ∥ codex)", preset.stages().get(2).name() + "(" + preset.stages().get(2).describeAgents() + ")");
         assertEquals(List.of("claude", "codex"), preset.modules());
 
         FlowDefinition legacy = config.flow("legacy");

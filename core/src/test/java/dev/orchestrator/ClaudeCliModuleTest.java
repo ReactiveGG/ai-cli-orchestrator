@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.orchestrator.domain.AgentOptions;
 import dev.orchestrator.domain.CompiledPrompt;
 import dev.orchestrator.domain.ExecutionContext;
 import dev.orchestrator.domain.ExecutionRequest;
@@ -56,12 +57,17 @@ class ClaudeCliModuleTest {
     }
 
     private static ExecutionContext context(List<String> summary, List<String> detail) {
+        return context(summary, detail, AgentOptions.NONE);
+    }
+
+    private static ExecutionContext context(List<String> summary, List<String> detail, AgentOptions options) {
         return new ExecutionContext() {
             @Override public void detail(String line) { detail.add(line); }
             @Override public void summary(String line) { summary.add(line); }
             @Override public boolean isCancelled() { return false; }
             @Override public Duration timeout() { return Duration.ofSeconds(10); }
             @Override public Duration idleWarning() { return Duration.ofSeconds(10); }
+            @Override public AgentOptions options() { return options; }
         };
     }
 
@@ -100,6 +106,18 @@ class ClaudeCliModuleTest {
         String argv = detail.stream().filter(l -> l.contains("\"argv\"")).findFirst().orElseThrow();
         assertTrue(argv.contains("--permission-mode acceptEdits"), argv);
         assertTrue(!argv.contains("--model") && !argv.contains("--max-budget-usd"), argv);
+    }
+
+    @Test
+    void agentOptionsOverrideModelAndAddEffort() throws IOException {
+        List<String> detail = new ArrayList<>();
+        ClaudeCliModule module = fakeClaude(SUCCESS, "sonnet", null);
+
+        module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(new ArrayList<>(), detail, new AgentOptions("opus", "high")));
+
+        String argv = detail.stream().filter(l -> l.contains("\"argv\"")).findFirst().orElseThrow();
+        assertTrue(argv.contains("--model opus --effort high"), argv);
+        assertTrue(!argv.contains("--model sonnet"), "agent model must win over the module default");
     }
 
     @Test

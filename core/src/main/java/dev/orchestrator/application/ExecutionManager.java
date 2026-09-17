@@ -1,6 +1,7 @@
 package dev.orchestrator.application;
 
 import dev.orchestrator.config.FlowConfig;
+import dev.orchestrator.domain.AgentOptions;
 import dev.orchestrator.domain.AgentRole;
 import dev.orchestrator.domain.AgentSpec;
 import dev.orchestrator.domain.AiModule;
@@ -94,7 +95,7 @@ public final class ExecutionManager {
                 String roleName = role == null ? null : role.name();
                 int duplicateIndex = seen.merge(agent.module() + "@" + roleName, 0, (old, ignored) -> old + 1);
                 ExecutionStep step = ExecutionStep.agent(stageIndex, duplicateIndex, stage.name(), roleName,
-                        role == null ? null : role.labelKo(), agent.module(), previous);
+                        role == null ? null : role.labelKo(), agent.module(), agent.model(), agent.effort(), previous);
                 plan.add(step);
                 ids.add(step.id());
             }
@@ -139,7 +140,7 @@ public final class ExecutionManager {
                         if (role != null || !previous.isEmpty()) {
                             observer.onDetail(step, stagePrompt.body());
                         }
-                        return runModule(step, agent.module(), stagePrompt, request, observer, stop, true)
+                        return runModule(step, agent.module(), agent.options(), stagePrompt, request, observer, stop, true)
                                 .at(currentStage, roleName);
                     } catch (RuntimeException e) {
                         stageFailed.set(true);
@@ -212,6 +213,7 @@ public final class ExecutionManager {
     private ExecutionResult runModule(
             ExecutionStep step,
             String moduleName,
+            AgentOptions options,
             CompiledPrompt prompt,
             ExecutionRequest request,
             ExecutionObserver observer,
@@ -220,8 +222,10 @@ public final class ExecutionManager {
     ) {
         AiModule module = resolveModule(moduleName);
         observer.onStepStarted(step);
-        observer.onSummary(step, moduleName + " 시작 (" + module.description() + ")");
-        ExecutionContext context = new ObserverContext(step, observer, cancelled, moduleTimeout, idleWarning);
+        observer.onSummary(step, moduleName + " 시작 (" + module.description()
+                + (options.model() == null ? "" : ", model " + options.model())
+                + (options.effort() == null ? "" : ", effort " + options.effort()) + ")");
+        ExecutionContext context = new ObserverContext(step, observer, cancelled, moduleTimeout, idleWarning, options);
         try {
             ExecutionResult result = module.execute(prompt, request, context);
             observer.onSummary(step, moduleName + " 완료: 입력 " + result.usage().inputTokens()
@@ -234,7 +238,7 @@ public final class ExecutionManager {
             if (allowFallback && error.kind() == ModuleExecutionException.Kind.TIMEOUT
                     && fallback != null && modules.containsKey(fallback)) {
                 observer.onSummary(step, moduleName + " 시간 초과, 폴백 모듈 " + fallback + "(으)로 재시도");
-                return runModule(step.withModule(fallback), fallback, prompt, request, observer, cancelled, false);
+                return runModule(step.withModule(fallback), fallback, AgentOptions.NONE, prompt, request, observer, cancelled, false);
             }
             throw error;
         } catch (RuntimeException error) {
@@ -275,7 +279,8 @@ public final class ExecutionManager {
             ExecutionObserver observer,
             BooleanSupplier cancelled,
             Duration timeout,
-            Duration idleWarning
+            Duration idleWarning,
+            AgentOptions options
     ) implements ExecutionContext {
         @Override
         public void detail(String line) {

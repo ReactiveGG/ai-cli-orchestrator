@@ -1,6 +1,7 @@
 package dev.orchestrator.module;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import dev.orchestrator.domain.AgentOptions;
 import dev.orchestrator.domain.CompiledPrompt;
 import dev.orchestrator.domain.ExecutionContext;
 import dev.orchestrator.domain.ExecutionRequest;
@@ -37,7 +38,7 @@ public final class ClaudeCliModule extends CliAiModule {
     }
 
     @Override
-    protected List<String> command(CompiledPrompt prompt, ExecutionRequest request) {
+    protected List<String> command(CompiledPrompt prompt, ExecutionRequest request, AgentOptions options) {
         pendingUsage = TokenUsage.ZERO;   // command() runs once per execution, before any event
         List<String> argv = new ArrayList<>(List.of(
                 settings.command(), "-p", "--output-format", "stream-json", "--verbose"
@@ -46,9 +47,14 @@ public final class ClaudeCliModule extends CliAiModule {
             argv.add("--permission-mode");
             argv.add("acceptEdits");
         }
-        if (settings.model() != null) {
+        String model = options.model() != null ? options.model() : settings.model();
+        if (model != null) {
             argv.add("--model");
-            argv.add(settings.model());
+            argv.add(model);
+        }
+        if (options.effort() != null) {
+            argv.add("--effort");
+            argv.add(options.effort());
         }
         if (settings.maxBudgetUsd() != null && settings.maxBudgetUsd() > 0) {
             argv.add("--max-budget-usd");

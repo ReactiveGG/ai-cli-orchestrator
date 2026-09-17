@@ -126,10 +126,16 @@ export interface RoleInfo {
   instructions: string
 }
 
+export interface AgentInfo {
+  module: string
+  model: string | null
+  effort: string | null
+}
+
 export interface StageInfo {
   name: string
   role: string
-  models: string[]
+  models: AgentInfo[]
 }
 
 export interface FlowInfo {
@@ -151,12 +157,19 @@ export interface Catalog {
   roles: RoleInfo[]
 }
 
-/** Editable config (GET/PUT /api/config/routing). A stage is one role run by 1+ models in parallel. */
+/** One agent of a stage: tool + optional model variant (fable/opus/sonnet…) + optional effort. */
+export interface AgentDto {
+  module: string
+  model: string | null
+  effort: string | null
+}
+
+/** Editable config (GET/PUT /api/config/routing). A stage is one role run by 1+ agents in parallel. */
 export interface StageDto {
   name: string | null
   role: string
-  /** empty = the flow's defaultModule */
-  models: string[]
+  /** empty = one run on the flow's defaultModule */
+  models: AgentDto[]
 }
 
 export interface FlowDto {

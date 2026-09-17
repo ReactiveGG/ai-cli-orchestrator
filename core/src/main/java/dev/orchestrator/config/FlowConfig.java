@@ -225,21 +225,20 @@ public final class FlowConfig {
             if (!isRole.test(role)) {
                 throw new IllegalArgumentException("Unknown agent role: " + role);
             }
-            List<String> models = new ArrayList<>();
-            if (map.get("models") instanceof List<?> list) {
-                list.forEach(item -> models.add(String.valueOf(item)));
-            } else if (map.get("models") != null) {
-                models.add(String.valueOf(map.get("models")));
-            } else if (map.get("model") != null) {
-                models.add(String.valueOf(map.get("model")));
+            List<AgentSpec> agents = new ArrayList<>();
+            Object modelsNode = map.get("models") != null ? map.get("models") : map.get("model");
+            if (modelsNode instanceof List<?> list) {
+                list.forEach(item -> agents.add(parseModel(item, role, defaultModule)));
+            } else if (modelsNode != null) {
+                agents.add(parseModel(modelsNode, role, defaultModule));
             } else if (defaultModule != null) {
-                models.add(defaultModule);
+                agents.add(new AgentSpec(role, defaultModule));
             }
-            if (models.isEmpty()) {
+            if (agents.isEmpty()) {
                 throw new IllegalArgumentException("Stage '" + role + "' needs models (or set defaultModule)");
             }
             String name = map.get("name") == null ? roles.get(role).labelKo() : String.valueOf(map.get("name"));
-            return StageDefinition.ofRole(name, role, models);
+            return new StageDefinition(name, agents);
         }
         if (node instanceof Map<?, ?> map && map.containsKey("agents")) {
             stageName = map.get("name") == null ? null : String.valueOf(map.get("name"));
@@ -256,11 +255,25 @@ public final class FlowConfig {
         return new StageDefinition(stageName == null ? fallbackName : stageName, agents);
     }
 
+    /** One entry of a stage's {@code models}: {@code claude}, {@code claude:opus/high} or {@code {module, model, effort}}. */
+    private static AgentSpec parseModel(Object node, String role, String defaultModule) {
+        if (node instanceof Map<?, ?> map) {
+            String module = map.get("module") == null ? defaultModule : String.valueOf(map.get("module"));
+            return new AgentSpec(role, module,
+                    map.get("model") == null ? null : String.valueOf(map.get("model")),
+                    map.get("effort") == null ? null : String.valueOf(map.get("effort")));
+        }
+        AgentSpec parsed = AgentSpec.parse(String.valueOf(node), defaultModule, r -> false);
+        return new AgentSpec(role, parsed.module(), parsed.model(), parsed.effort());
+    }
+
     private static AgentSpec parseAgent(Object node, String defaultModule, java.util.function.Predicate<String> isRole) {
         if (node instanceof Map<?, ?> map) {
             String role = map.get("role") == null ? null : String.valueOf(map.get("role"));
             String module = map.get("module") == null ? defaultModule : String.valueOf(map.get("module"));
-            return new AgentSpec(role, module);
+            return new AgentSpec(role, module,
+                    map.get("model") == null ? null : String.valueOf(map.get("model")),
+                    map.get("effort") == null ? null : String.valueOf(map.get("effort")));
         }
         return AgentSpec.parse(String.valueOf(node), defaultModule, isRole);
     }

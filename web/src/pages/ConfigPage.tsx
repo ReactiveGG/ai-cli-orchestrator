@@ -3,13 +3,18 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { Copy, GripVertical, Play, Plus, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
-import type { FlowConfig, FlowDto, StageDto } from '../lib/types'
+import type { AgentDto, FlowConfig, FlowDto, StageDto } from '../lib/types'
 import { FlowDiagram, type FlowStep } from '../components/FlowDiagram'
 
 /** The pipeline is fixed; a preset only decides how many models run each stage. */
 const PIPELINE = ['planner', 'coder', 'reviewer', 'verifier'] as const
 
 const signatureOf = (f: FlowDto) => f.stages.map((s) => Math.max(1, s.models.length)).join('-')
+/** Model aliases the Claude CLI accepts for --model, and the --effort levels. */
+const MODEL_CHOICES: Record<string, string[]> = { claude: ['fable', 'opus', 'sonnet', 'haiku'], codex: ['gpt-5-codex', 'o3'] }
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
+const agent = (module: string): AgentDto => ({ module, model: null, effort: null })
+const describeAgent = (a: AgentDto) => a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module
 
 /**
  * Preset editor. Every preset runs planner → coder → reviewer → verifier; drag
@@ -49,14 +54,14 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
   const updatePreset = (fn: (p: FlowDto) => FlowDto) => setCfg((c) => c && ({ ...c, flows: { ...c.flows, [selected]: fn(structuredClone(c.flows[selected])) } }))
-  const setModels = (si: number, fn: (models: string[]) => string[]) => updatePreset((p) => { p.stages[si].models = fn([...p.stages[si].models]); return p })
+  const setModels = (si: number, fn: (models: AgentDto[]) => AgentDto[]) => updatePreset((p) => { p.stages[si].models = fn(p.stages[si].models.map((a) => ({ ...a }))); return p })
 
   const onDragEnd = (e: DragEndEvent) => {
     setDragging(null)
     const activeId = String(e.active.id); const overId = e.over ? String(e.over.id) : null
     if (!overId || !overId.startsWith('stage:')) return
     const target = Number(overId.slice(6))
-    if (activeId.startsWith('palette:')) { const m = activeId.slice(8); setModels(target, (ms) => [...ms, m]); return }
+    if (activeId.startsWith('palette:')) { const m = activeId.slice(8); setModels(target, (ms) => [...ms, agent(m)]); return }
     if (activeId.startsWith('model:')) {
       const [, s, i] = activeId.split(':'); const from = Number(s); const idx = Number(i)
       if (from === target) return
@@ -132,10 +137,11 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
               <div className="mt-4 grid gap-2 md:grid-cols-4">
                 {preset.stages.map((stage, si) => (
                   <StageColumn key={si} index={si} stage={stage} roleLabel={cfg.roles[stage.role]?.label ?? stage.role} roleHint={cfg.roles[stage.role]?.instructions.split('\n')[0] ?? ''} defaultModule={preset.defaultModule ?? modules[0]} modules={modules}
-                    onAdd={(m) => setModels(si, (ms) => [...ms, m])} onRemove={(mi) => setModels(si, (ms) => ms.filter((_, k) => k !== mi))} last={si === preset.stages.length - 1} />
+                    onAdd={(m) => setModels(si, (ms) => [...ms, agent(m)])} onRemove={(mi) => setModels(si, (ms) => ms.filter((_, k) => k !== mi))}
+                    onChange={(mi, patch) => setModels(si, (ms) => { ms[mi] = { ...ms[mi], ...patch }; return ms })} last={si === preset.stages.length - 1} />
                 ))}
               </div>
-              <p className="mt-2 text-xs text-slate-500">단계는 고정입니다. 칸에 모델을 더 놓을수록 그 단계가 병렬로 돌고, 다음 단계는 결과를 전부 받습니다. 예: 리뷰어 2개 = 교차 리뷰, 코더 3개 + 리뷰어 3개 = 3안 중 검증자가 선택.</p>
+              <p className="mt-2 text-xs text-slate-500">단계는 고정입니다. 칸에 모델을 더 놓을수록 그 단계가 병렬로 돌고, 다음 단계는 결과를 전부 받습니다. 칩마다 사용 모델(fable/opus/sonnet…)과 에포트를 정할 수 있고, 비우면 CLI 기본값입니다.</p>
 
               <div className="mt-4">
                 <div className="mb-1 text-xs text-slate-500">실행 흐름 미리보기</div>
@@ -191,11 +197,11 @@ export function buildPlan(flow: FlowDto, cfg: FlowConfig): FlowStep[] {
   let prev: string[] = []
   flow.stages.forEach((stage, si) => {
     const ids: string[] = []
-    const models = stage.models.length ? stage.models : [flow.defaultModule ?? 'claude']
-    models.forEach((m, k) => {
-      const dup = models.slice(0, k).filter((x) => x === m).length
-      const id = `s${si + 1}/${stage.role}@${m}${dup ? `#${dup}` : ''}`
-      steps.push({ id, label: cfg.roles[stage.role]?.label ?? stage.role, module: m, role: stage.role, dependsOn: prev }); ids.push(id)
+    const models = stage.models.length ? stage.models : [agent(flow.defaultModule ?? 'claude')]
+    models.forEach((a, k) => {
+      const dup = models.slice(0, k).filter((x) => x.module === a.module).length
+      const id = `s${si + 1}/${stage.role}@${a.module}${dup ? `#${dup}` : ''}`
+      steps.push({ id, label: cfg.roles[stage.role]?.label ?? stage.role, module: describeAgent(a), role: stage.role, dependsOn: prev }); ids.push(id)
     })
     prev = ids
   })
@@ -211,8 +217,9 @@ function PaletteBlock({ id, label, sub }: { id: string; label: string; sub: stri
   )
 }
 
-function StageColumn({ index, stage, roleLabel, roleHint, defaultModule, modules, onAdd, onRemove, last }: {
-  index: number; stage: StageDto; roleLabel: string; roleHint: string; defaultModule: string; modules: string[]; onAdd: (m: string) => void; onRemove: (mi: number) => void; last: boolean
+function StageColumn({ index, stage, roleLabel, roleHint, defaultModule, modules, onAdd, onRemove, onChange, last }: {
+  index: number; stage: StageDto; roleLabel: string; roleHint: string; defaultModule: string; modules: string[]
+  onAdd: (m: string) => void; onRemove: (mi: number) => void; onChange: (mi: number, patch: Partial<AgentDto>) => void; last: boolean
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `stage:${index}` })
   const n = Math.max(1, stage.models.length)
@@ -225,7 +232,7 @@ function StageColumn({ index, stage, roleLabel, roleHint, defaultModule, modules
       </div>
       <div className="mb-2 truncate text-[11px] text-slate-500" title={roleHint}>{roleHint}</div>
       <div ref={setNodeRef} className={`flex min-h-24 flex-col gap-1.5 rounded-md border-2 border-dashed p-2 ${isOver ? 'border-sky-400 bg-sky-50/60 dark:bg-sky-950/30' : 'border-slate-300 dark:border-slate-700'}`}>
-        {stage.models.map((m, mi) => <ModelChip key={`${index}:${mi}`} id={`model:${index}:${mi}`} model={m} onRemove={() => onRemove(mi)} />)}
+        {stage.models.map((a, mi) => <ModelChip key={`${index}:${mi}`} id={`model:${index}:${mi}`} agent={a} onRemove={() => onRemove(mi)} onChange={(patch) => onChange(mi, patch)} />)}
         {stage.models.length === 0 && <span className="text-xs text-slate-400">비어 있음 → 기본 모델 <span className="mono">{defaultModule}</span> 1개</span>}
         <div className="mt-auto flex flex-wrap gap-1 pt-1">
           {modules.map((m) => <button key={m} onClick={() => onAdd(m)} className="mono rounded border border-slate-300 px-1.5 text-[11px] text-slate-600 hover:bg-white dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">+ {m}</button>)}
@@ -236,13 +243,28 @@ function StageColumn({ index, stage, roleLabel, roleHint, defaultModule, modules
   )
 }
 
-function ModelChip({ id, model, onRemove }: { id: string; model: string; onRemove: () => void }) {
+function ModelChip({ id, agent: a, onRemove, onChange }: { id: string; agent: AgentDto; onRemove: () => void; onChange: (patch: Partial<AgentDto>) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id })
+  const choices = MODEL_CHOICES[a.module] ?? []
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
   return (
-    <div ref={setNodeRef} style={{ transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.4 : 1 }} className="flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-2 py-1 text-sm dark:border-sky-800 dark:bg-sky-950">
-      <span {...listeners} {...attributes} className="cursor-grab text-slate-400 active:cursor-grabbing"><GripVertical size={14} /></span>
-      <span className="mono font-medium">{model}</span>
-      <button onClick={onRemove} className="ml-auto text-slate-400 hover:text-rose-600"><X size={14} /></button>
+    <div ref={setNodeRef} style={{ transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined, opacity: isDragging ? 0.4 : 1 }} className="rounded-lg border border-sky-300 bg-sky-50 px-2 py-1 text-sm dark:border-sky-800 dark:bg-sky-950">
+      <div className="flex items-center gap-1.5">
+        <span {...listeners} {...attributes} className="cursor-grab text-slate-400 active:cursor-grabbing"><GripVertical size={14} /></span>
+        <span className="mono font-medium">{a.module}</span>
+        <button onClick={onRemove} className="ml-auto text-slate-400 hover:text-rose-600"><X size={14} /></button>
+      </div>
+      <div className="mt-1 flex gap-1" onPointerDown={stop}>
+        <select value={a.model ?? ''} onChange={(e) => onChange({ model: e.target.value || null })} title="사용 모델 (--model)" className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1 text-[11px] dark:border-slate-700 dark:bg-slate-900">
+          <option value="">모델: 기본</option>
+          {choices.map((m) => <option key={m} value={m}>{m}</option>)}
+          {a.model && !choices.includes(a.model) && <option value={a.model}>{a.model}</option>}
+        </select>
+        <select value={a.effort ?? ''} onChange={(e) => onChange({ effort: e.target.value || null })} title="에포트 (--effort)" className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-1 text-[11px] dark:border-slate-700 dark:bg-slate-900">
+          <option value="">에포트: 기본</option>
+          {EFFORTS.map((e) => <option key={e} value={e}>{e}</option>)}
+        </select>
+      </div>
     </div>
   )
 }

@@ -53,7 +53,7 @@ public record FlowDefinition(String name, String label, TaskType taskType, Strin
     /** {@code 플래너(claude) → 리뷰어(claude ∥ codex)}. */
     public String describe() {
         return stages.stream()
-                .map(s -> s.name() + "(" + String.join(" ∥ ", s.models()) + ")")
+                .map(s -> s.name() + "(" + s.describeAgents() + ")")
                 .reduce((a, b) -> a + " → " + b)
                 .orElse("");
     }
