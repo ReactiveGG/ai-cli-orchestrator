@@ -28,10 +28,19 @@ public record OrchestratorProperties(
         @DefaultValue Map<String, ModuleSettings> modules,
         @DefaultValue Status status
 ) {
+    /**
+     * @param model        model alias/name passed to the CLI ({@code --model}), null = CLI default
+     * @param maxBudgetUsd spend cap per agent run ({@code --max-budget-usd}), null = none
+     * @param allowedTools tool patterns allowed without a prompt ({@code --allowedTools}); everything else
+     *                     that needs permission is denied in non-interactive mode
+     */
     public record ModuleSettings(
             @DefaultValue("AUTO") ModuleMode mode,
             String command,
-            @DefaultValue List<String> extraArgs
+            @DefaultValue List<String> extraArgs,
+            String model,
+            Double maxBudgetUsd,
+            @DefaultValue List<String> allowedTools
     ) {
     }
 
@@ -55,6 +64,6 @@ public record OrchestratorProperties(
 
     public ModuleSettings moduleSettings(String name) {
         ModuleSettings settings = modules == null ? null : modules.get(name);
-        return settings != null ? settings : new ModuleSettings(ModuleMode.AUTO, name, List.of());
+        return settings != null ? settings : new ModuleSettings(ModuleMode.AUTO, name, List.of(), null, null, List.of());
     }
 }

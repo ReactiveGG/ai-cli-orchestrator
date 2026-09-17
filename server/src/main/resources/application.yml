@@ -20,6 +20,28 @@ orchestrator:
     claude:
       mode: AUTO          # AUTO | CLI | STUB
       command: claude
+      # model: sonnet     # --model alias or full name; omit for the CLI default
+      max-budget-usd: 2.0 # --max-budget-usd per agent run; a trivial run already costs ~$0.2 (prompt cache)
+      # Shell commands the agents may run without asking. Non-interactive runs cannot answer
+      # permission prompts, so anything not listed here is denied (edits are governed separately:
+      # only the coder gets --permission-mode acceptEdits).
+      allowed-tools:
+        - "Bash(git status*)"
+        - "Bash(git diff*)"
+        - "Bash(git log*)"
+        - "Bash(ls*)"
+        - "Bash(cat*)"
+        - "Bash(python3 -m unittest*)"
+        - "Bash(python3 -m pytest*)"
+        - "Bash(pytest*)"
+        - "Bash(npm test*)"
+        - "Bash(npm run test*)"
+        - "Bash(npx vitest*)"
+        - "Bash(npx jest*)"
+        - "Bash(./gradlew test*)"
+        - "Bash(mvn test*)"
+        - "Bash(go test*)"
+        - "Bash(cargo test*)"
       extra-args: []      # e.g. ["--max-turns", "30"]
     codex:
       mode: AUTO

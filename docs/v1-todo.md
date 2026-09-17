@@ -1,12 +1,12 @@
 # v1 완성 TODO
 
 기준: "매일 실제 프로젝트에 쓸 수 있는 v1". 항목을 끝내면 체크박스를 채우고 진행률을 갱신한다.
-마지막 갱신: 2026-09-17 · 가중 완성도 **약 50%**
+마지막 갱신: 2026-09-17 (Claude CLI 실연동 검증 후) · 가중 완성도 **약 58%**
 
 | # | 프로세스 | 가중치 | 진행 | 상태 |
 |---|---|---|---|---|
-| 1 | 핵심 엔진 | 15 | 90% | 스텁 테스트 26개 통과, 실모델 검증만 남음 |
-| 2 | Claude CLI 실연동 검증 | 15 | 30% | 코드는 있으나 실제 `claude`로 미검증 |
+| 1 | 핵심 엔진 | 15 | 92% | 실모델로 4단계 체인 확인. 프롬프트 길이 제한 남음 |
+| 2 | Claude CLI 실연동 검증 | 15 | 85% | default 1-1-1-1 실제 실행 성공(2m13s, $1.72). allowed-tools 추가. 로그인 실패·강제 종료 케이스만 남음 |
 | 3 | 병렬 코더 작업 공간 격리 | 12 | 0% | 설계 없음. 현재 1-1-x-1만 안전 |
 | 4 | 서버 (Job 큐·SSE·저장) | 10 | 85% | 동작 확인. 재연결·로그 정리·이력 관리 미흡 |
 | 5 | 웹 UI | 12 | 75% | 빌드·프로토타입 확인. 브라우저 QA 필요 |
@@ -38,12 +38,17 @@
 - [ ] 실모델 결과로 역할 지시문(특히 리뷰어·검증자의 후보 선택) 튜닝
 
 ### 2. Claude CLI 실연동 검증
-- [ ] `claude -p --output-format stream-json --verbose` 실제 실행, 이벤트 파싱 확인
-- [ ] `result` 이벤트의 usage/total_cost_usd 집계가 대시보드에 맞게 들어오는지
-- [ ] 코더 단계의 `--permission-mode acceptEdits` 동작과 파일 수정 범위 확인
-- [ ] 작업 공간(`orchestrator.workspace`) 지정 시 CLI가 그 폴더에서 도는지
-- [ ] 실패 케이스: 로그인 안 됨, rate limit, 프로세스 강제 종료 시 로그·상태
-- [ ] `extra-args`(예: `--max-turns`) 전달 확인
+- [x] `claude -p --output-format stream-json --verbose` 실제 실행, 이벤트 파싱 확인 (system/init, rate_limit_event, assistant, result)
+- [x] `result` 이벤트의 usage/total_cost_usd 집계가 대시보드에 맞게 들어오는지 (에러 결과는 assistant 메시지 usage로 대체)
+- [x] 코더 단계의 `--permission-mode acceptEdits` 동작과 파일 수정 범위 확인 (greeting.py 수정, test_greeting.py 생성)
+- [x] 작업 공간(`orchestrator.workspace`) 지정 시 CLI가 그 폴더에서 도는지
+- [x] 셸 명령 권한: 비대화형에서 Bash가 전부 거부되던 문제 → `allowed-tools`(`--allowedTools`) 설정 추가, 실검증 완료
+- [x] 예산 상한(`max-budget-usd`) 전달과 `error_max_budget_usd` 실패 처리
+- [x] `extra-args`(예: `--max-turns`) 전달 확인 (리플레이 테스트)
+- [x] Claude Code 세션 안에서 띄울 때 중첩 세션 환경 변수 제거
+- [ ] 실패 케이스: 로그인 안 됨, 프로세스 강제 종료(취소) 시 로그·상태 확인
+- [ ] 대시보드에 구독 사용량 창(5시간/7일 사용률, rate_limit_event) 표시
+- [ ] allowed-tools 적용 상태로 1-1-1-1 재실행해 리뷰어·검증자가 테스트를 실제로 돌리는지 확인
 
 ### 3. 병렬 코더 작업 공간 격리
 - [ ] 설계: 코더 에이전트마다 git worktree(또는 복사본)에서 작업

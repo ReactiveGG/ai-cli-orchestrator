@@ -33,8 +33,8 @@ class JobServiceTest {
         OrchestratorProperties properties = new OrchestratorProperties(
                 tempDir, tempDir, 1, Duration.ofSeconds(30), Duration.ofSeconds(5),
                 Map.of(
-                        "claude", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "claude", List.of()),
-                        "codex", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "codex", List.of())),
+                        "claude", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "claude", List.of(), null, null, List.of()),
+                        "codex", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "codex", List.of(), null, null, List.of())),
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)));
         orchestration = new OrchestrationService(properties);
         service = new JobService(orchestration, new JobStore(properties.jobsDir()), 1);

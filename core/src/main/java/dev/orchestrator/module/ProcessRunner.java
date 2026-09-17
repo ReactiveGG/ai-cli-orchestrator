@@ -25,6 +25,10 @@ import java.util.function.Consumer;
  */
 public final class ProcessRunner {
     private static final Duration POLL = Duration.ofMillis(250);
+    private static final List<String> NESTED_SESSION_ENV = List.of(
+            "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED",
+            "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_MESSAGING_TOKEN", "CLAUDE_CODE_MESSAGING_SOCKET",
+            "CLAUDE_CODE_EXECPATH", "CLAUDE_PID", "CLAUDE_EFFORT");
 
     private ProcessRunner() {
     }
@@ -44,6 +48,11 @@ public final class ProcessRunner {
         ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
         if (workingDirectory != null) {
             builder.directory(workingDirectory.toFile());
+        }
+        // When the orchestrator itself runs inside a Claude Code session these
+        // variables would make the child CLI behave as a nested session.
+        for (String key : NESTED_SESSION_ENV) {
+            builder.environment().remove(key);
         }
         context.detail("$ " + String.join(" ", command));
         Process process;
@@ -72,8 +81,15 @@ public final class ProcessRunner {
             try (OutputStream out = process.getOutputStream()) {
                 out.write(stdin.getBytes(StandardCharsets.UTF_8));
             } catch (IOException e) {
-                kill(process);
-                throw new ModuleExecutionException(Kind.FAILED, moduleName, "Cannot write prompt to " + command.get(0), e);
+                // The child exited before reading stdin (auth error, bad flag, ...). Its own
+                // output and exit code explain why, so keep going instead of masking that.
+                context.detail("(stdin not consumed: " + e.getMessage() + ")");
+            }
+        } else {
+            try {
+                process.getOutputStream().close();
+            } catch (IOException ignored) {
+                // nothing to send
             }
         }
 

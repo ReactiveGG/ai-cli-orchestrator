@@ -61,6 +61,6 @@ public class OrchestrationService {
         ModuleSettings settings = properties.moduleSettings(name);
         String command = settings.command() == null || settings.command().isBlank() ? name : settings.command();
         return ModuleFactory.create(name, settings.mode(),
-                new CliModuleSettings(command, settings.extraArgs(), properties.workspaceOrCwd()));
+                new CliModuleSettings(command, settings.extraArgs(), properties.workspaceOrCwd(), settings.model(), settings.maxBudgetUsd(), settings.allowedTools()));
     }
 }

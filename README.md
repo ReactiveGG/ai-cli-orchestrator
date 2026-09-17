@@ -125,6 +125,16 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
 | `orchestrator.workspace` | AI CLI가 실행되는 디렉터리(수정 대상 코드) | 서버 실행 위치 |
 | `orchestrator.modules.<name>.mode` | `AUTO`(설치돼 있으면 CLI, 아니면 스텁) / `CLI` / `STUB` | `AUTO` |
 | `orchestrator.modules.<name>.command` | 실행 파일 이름 또는 경로 | 모듈 이름 |
+| `orchestrator.modules.claude.model` | `--model` 별칭/이름 (예: `sonnet`) | CLI 기본값 |
+| `orchestrator.modules.claude.max-budget-usd` | 에이전트 1회 실행의 비용 상한 (`--max-budget-usd`) | 2.0 |
+| `orchestrator.modules.claude.allowed-tools` | 묻지 않고 허용할 도구 패턴 (`--allowedTools`). 비대화형이라 목록에 없는 셸 명령은 거부됨 | git status/diff/log, 테스트 러너 등 |
+
+### Claude CLI 실연동에서 확인된 동작
+
+- 코더 단계만 `--permission-mode acceptEdits`로 돌아 파일을 수정한다. 플래너·리뷰어·검증자는 읽기만 가능하다.
+- 비대화형 모드는 권한 프롬프트에 답할 수 없어서, `allowed-tools`에 없는 셸 명령은 자동 거부되고 요약 로그에 "권한 거부됨"으로 남는다. 테스트를 돌리게 하려면 프로젝트의 테스트 명령을 이 목록에 넣는다.
+- 비용은 CLI가 계산한 API 정가 환산값(`total_cost_usd`)이다. 구독 로그인으로 쓰면 실제 청구가 아니라 사용량 창 소진의 상대 지표다. 사소한 실행도 시스템 프롬프트 캐시 생성 때문에 약 $0.2가 나온다.
+- 서버를 Claude Code 세션 안에서 띄워도 자식 `claude`가 중첩 세션으로 오인하지 않도록 관련 환경 변수를 제거하고 실행한다.
 
 Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.log`로 남는다.
 
