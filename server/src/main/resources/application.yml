@@ -1,0 +1,34 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-cli-orchestrator
+  mvc:
+    async:
+      request-timeout: -1   # SSE streams stay open
+
+orchestrator:
+  # Jobs, logs and orchestrator.yml (routing) live here.
+  data-dir: ${user.home}/.ai-orchestrator
+  # Directory the AI CLIs run in (the code they may read/edit). Defaults to the server's cwd.
+  # workspace: /path/to/your/project
+  concurrency: 2
+  module-timeout: 10m
+  idle-warning: 60s
+  modules:
+    claude:
+      mode: AUTO          # AUTO | CLI | STUB
+      command: claude
+      extra-args: []      # e.g. ["--max-turns", "30"]
+    codex:
+      mode: AUTO
+      command: codex
+      extra-args: []
+  status:
+    anthropic-status-url: https://status.claude.com/api/v2/status.json
+    cache-ttl: 60s
+
+logging:
+  level:
+    dev.orchestrator: INFO
