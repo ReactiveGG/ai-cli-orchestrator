@@ -10,11 +10,11 @@ import { ConfigPage } from './pages/ConfigPage'
 
 type View = 'dashboard' | 'jobs' | 'config'
 
-/** URL hash is the source of truth for view + selected job: #dashboard, #jobs, #jobs/<id>, #config. */
+/** URL hash is the source of truth for view + selected job: #dashboard[/<id>], #jobs[/<id>], #config. */
 function readHash(): { view: View; selected: string | null } {
   const [view, id] = window.location.hash.replace(/^#/, '').split('/')
   const v: View = view === 'jobs' || view === 'config' ? view : 'dashboard'
-  return { view: v, selected: v === 'jobs' && id ? decodeURIComponent(id) : null }
+  return { view: v, selected: v !== 'config' && id ? decodeURIComponent(id) : null }
 }
 
 export default function App() {
@@ -22,8 +22,9 @@ export default function App() {
   const [route, setRoute] = useState(readHash)
   const view = route.view
   const selected = route.selected
-  const setView = useCallback((v: View) => { window.location.hash = v === 'jobs' && route.selected ? `jobs/${route.selected}` : v }, [route.selected])
-  const setSelected = useCallback((id: string | null) => { window.location.hash = id ? `jobs/${id}` : 'jobs' }, [])
+  // Switching tabs keeps the selected job; selecting a job keeps the current tab (dashboard or jobs).
+  const setView = useCallback((v: View) => { window.location.hash = v !== 'config' && route.selected ? `${v}/${route.selected}` : v }, [route.selected])
+  const setSelected = useCallback((id: string | null) => { const v = route.view === 'config' ? 'jobs' : route.view; window.location.hash = id ? `${v}/${id}` : v }, [route.view])
   useEffect(() => {
     const onHash = () => setRoute(readHash())
     window.addEventListener('hashchange', onHash)
@@ -82,7 +83,7 @@ export default function App() {
     mutationFn: api.remove,
     onSuccess: (_, id) => {
       setJobs((prev) => prev.filter((j) => j.id !== id))
-      if (selected === id) window.location.hash = 'jobs'
+      if (selected === id) window.location.hash = view
     },
   })
 
