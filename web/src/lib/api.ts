@@ -2,6 +2,7 @@ import type {
   Catalog, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
 } from './types'
 import { mockApi, mockSubscribe } from './mock'
+import { humanize } from './errors'
 
 /** `vite --mode mock` (see .env.mock) swaps the server for an in-browser simulation. */
 export const MOCK = import.meta.env.VITE_MOCK === '1'
@@ -29,7 +30,7 @@ async function request<T>(url: string, init?: RequestInit, retried = false): Pro
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...(t ? { 'X-Orchestrator-Token': t } : {}), ...(init?.headers ?? {}) },
     ...init,
-  })
+  }).catch((e: Error) => { throw new Error(humanize(e.message)) })
   if (res.status === 401 && !retried) {
     token = null; tokenPromise = null   // token rotated (new data dir / config): fetch it again once
     return request<T>(url, init, true)
@@ -42,7 +43,7 @@ async function request<T>(url: string, init?: RequestInit, retried = false): Pro
     } catch {
       // keep default message
     }
-    throw new Error(message)
+    throw new Error(humanize(message))
   }
   if (res.status === 204) return undefined as T
   const text = await res.text()
@@ -63,7 +64,7 @@ const realApi = {
   candidatePatch: async (id: string, candidate: number) => {
     const t = await ensureToken()
     const res = await fetch(`/api/jobs/${id}/candidates/${candidate}/patch`, { headers: t ? { 'X-Orchestrator-Token': t } : {} })
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+    if (!res.ok) throw new Error(humanize(`${res.status} ${res.statusText}`))
     return res.text()
   },
   remove: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),
@@ -78,7 +79,15 @@ const realApi = {
 
 export const api: typeof realApi = MOCK ? mockApi : realApi
 
-/** Opens an SSE stream; returns a close function. */
+/** A stream with no frame (event or server ping) for this long is treated as dead and reopened. */
+const STALE_MS = 40_000
+
+/**
+ * Opens an SSE stream; returns a close function. EventSource reconnects by itself
+ * when the socket closes, but a proxy or port relay can keep a dead upstream's
+ * connection open forever, so the server pings every 15s and a silent stream is
+ * closed and reopened here (onError fires so the UI can show "연결 끊김").
+ */
 function realSubscribe(
   url: string,
   handlers: Record<string, (data: unknown) => void>,
@@ -86,11 +95,17 @@ function realSubscribe(
 ): () => void {
   let source: EventSource | null = null
   let closed = false
-  ensureToken().then(() => {
+  let lastFrame = Date.now()
+  const open = async () => {
+    await ensureToken()
     if (closed) return
+    source?.close()
     source = new EventSource(withToken(url))   // EventSource cannot set headers, so the token travels as ?token=
+    lastFrame = Date.now()
+    source.addEventListener('ping', () => { lastFrame = Date.now() })
     for (const [name, handler] of Object.entries(handlers)) {
       source.addEventListener(name, (event) => {
+        lastFrame = Date.now()
         try {
           handler(JSON.parse((event as MessageEvent).data))
         } catch {
@@ -98,9 +113,19 @@ function realSubscribe(
         }
       })
     }
-    source.onerror = () => onError?.()
-  })
-  return () => { closed = true; source?.close() }
+    source.onerror = () => {
+      onError?.()
+      // A non-200 answer (proxy 502 while the server restarts) makes EventSource give up for good; retry ourselves.
+      if (source?.readyState === EventSource.CLOSED && !closed) window.setTimeout(() => { if (!closed) void open() }, 5_000)
+    }
+  }
+  void open()
+  const watchdog = window.setInterval(() => {
+    if (closed || Date.now() - lastFrame < STALE_MS) return
+    onError?.()
+    void open()
+  }, 5_000)
+  return () => { closed = true; window.clearInterval(watchdog); source?.close() }
 }
 
 export const subscribe: typeof realSubscribe = MOCK ? (url, handlers) => mockSubscribe(url, handlers) : realSubscribe

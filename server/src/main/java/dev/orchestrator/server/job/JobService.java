@@ -295,6 +295,7 @@ public class JobService {
 
     @PreDestroy
     void shutdown() {
+        bus.shutdown();
         executor.shutdownNow();
         try {
             executor.awaitTermination(5, TimeUnit.SECONDS);
