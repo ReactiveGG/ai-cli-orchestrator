@@ -10,8 +10,9 @@ import java.util.regex.Pattern;
  * decision at the end overrides earlier discussion.
  */
 public final class CandidateDecision {
-    private static final Pattern KO = Pattern.compile("채택\\s*(?:후보)?\\s*[:：]\\s*(?:후보)?\\s*(\\d+)");
-    private static final Pattern EN = Pattern.compile("(?i)ADOPT(?:ED)?\\s*[:：]\\s*(?:candidate)?\\s*#?(\\d+)");
+    // Matches inside backticks are ignored: they are the instruction being quoted, not a decision.
+    private static final Pattern KO = Pattern.compile("(?<!`)채택\\s*(?:후보)?\\s*[:：]\\s*(?:후보)?\\s*(\\d+)(?!`)");
+    private static final Pattern EN = Pattern.compile("(?<!`)(?i)ADOPT(?:ED)?\\s*[:：]\\s*(?:candidate)?\\s*#?(\\d+)(?!`)");
 
     private CandidateDecision() {
     }

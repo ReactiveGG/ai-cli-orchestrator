@@ -176,6 +176,8 @@ class GitWorktreeIsolationTest {
         assertEquals(Optional.of(2), CandidateDecision.parse("ADOPT: candidate 2"));
         assertEquals(Optional.of(2), CandidateDecision.parse("Adopted: #2"));
         assertEquals(Optional.empty(), CandidateDecision.parse("아무 결정도 없다"));
+        assertEquals(Optional.empty(), CandidateDecision.parse("마지막 줄에 `채택: 후보 N` 형식으로 쓴다. 없으면 `채택: 후보 0`"), "quoted instruction is not a decision");
+        assertEquals(Optional.of(3), CandidateDecision.parse("지시: `채택: 후보 N`을 쓴다.\n채택: 후보 3"));
         assertEquals(Optional.empty(), CandidateDecision.parse(null));
     }
 }

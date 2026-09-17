@@ -234,6 +234,7 @@ public final class ExecutionManager {
                                 CandidatePatch patch = isolationSettings.isolation().capture(candidate, patchDir);
                                 observer.onSummary(step, "후보 " + candidate.index() + " 변경 추출: " + patch.summary());
                                 result = result.withPatch(patch);
+                                observer.onCandidate(step, patch, result);
                             }
                             return result;
                         } catch (RuntimeException e) {

@@ -23,6 +23,10 @@ public final class Job {
     private final List<JobEvent> events = new ArrayList<>();
     private final Map<String, JobStep> steps = new LinkedHashMap<>();
     private final Map<String, TokenUsage> usageByModule = new LinkedHashMap<>();
+    private final Map<Integer, JobCandidate> candidates = new java.util.TreeMap<>();
+    private int chosenCandidate;
+    private boolean applied;
+    private String decisionNote;
 
     private JobStatus status = JobStatus.QUEUED;
     private Instant startedAt;
@@ -61,6 +65,12 @@ public final class Job {
         }
         job.error = snapshot.error();
         job.result = snapshot.result();
+        job.chosenCandidate = snapshot.chosenCandidate();
+        job.applied = snapshot.applied();
+        job.decisionNote = snapshot.decisionNote();
+        if (snapshot.candidates() != null) {
+            snapshot.candidates().forEach(c -> job.candidates.put(c.index(), c));
+        }
         job.seq = snapshot.eventCount();
         job.droppedEvents = snapshot.eventCount();
         if (snapshot.steps() != null) {
@@ -134,6 +144,30 @@ public final class Job {
                 : step);
     }
 
+    public synchronized void addCandidate(JobCandidate candidate) {
+        candidates.put(candidate.index(), candidate);
+    }
+
+    public synchronized java.util.Optional<JobCandidate> candidate(int index) {
+        return java.util.Optional.ofNullable(candidates.get(index));
+    }
+
+    /** Records the verifier's decision and whether the chosen patch reached the workspace. */
+    public synchronized void setDecision(int chosen, boolean isApplied, String note) {
+        this.chosenCandidate = chosen;
+        this.applied = isApplied;
+        this.decisionNote = note;
+        candidates.replaceAll((index, c) -> c.with(index == chosen, index == chosen && isApplied));
+    }
+
+    /** A candidate applied by hand (possibly overriding the verifier's choice). */
+    public synchronized void markApplied(int index, String note) {
+        this.chosenCandidate = index;
+        this.applied = true;
+        this.decisionNote = note;
+        candidates.replaceAll((i, c) -> c.with(i == index, i == index));
+    }
+
     public synchronized void addUsage(String module, TokenUsage moduleUsage) {
         usage = usage.plus(moduleUsage);
         usageByModule.merge(module, moduleUsage, TokenUsage::plus);
@@ -169,7 +203,8 @@ public final class Job {
         return new JobSnapshot(
                 id, status, command, request.flow(), flowLabel == null ? request.flow() : flowLabel, request.target(), request.focus(),
                 request.responseLanguage(), createdAt, startedAt, finishedAt, lastOutputAt,
-                List.copyOf(steps.values()), usage, Map.copyOf(usageByModule), error, result, seq
+                List.copyOf(steps.values()), usage, Map.copyOf(usageByModule), error, result, seq,
+                List.copyOf(candidates.values()), chosenCandidate, applied, decisionNote
         );
     }
 }

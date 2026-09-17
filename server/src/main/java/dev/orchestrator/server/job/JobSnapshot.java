@@ -24,7 +24,11 @@ public record JobSnapshot(
         Map<String, TokenUsage> usageByModule,
         String error,
         String result,
-        long eventCount
+        long eventCount,
+        List<JobCandidate> candidates,
+        int chosenCandidate,
+        boolean applied,
+        String decisionNote
 ) {
     public int progressPercent() {
         if (steps == null || steps.isEmpty()) {

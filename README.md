@@ -130,6 +130,19 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
 | `orchestrator.modules.claude.model` | `--model` 별칭/이름 (예: `sonnet`) | CLI 기본값 |
 | `orchestrator.modules.claude.max-budget-usd` | 에이전트 1회 실행의 비용 상한 (`--max-budget-usd`) | 2.0 |
 | `orchestrator.modules.claude.allowed-tools` | 묻지 않고 허용할 도구 패턴 (`--allowedTools`). 비대화형이라 목록에 없는 셸 명령은 거부됨 | git status/diff/log, 테스트 러너 등 |
+| `orchestrator.isolation.enabled` | 경쟁 모드(코더 2개 이상) 작업 공간 격리. 작업 공간이 git 저장소여야 함 | true |
+| `orchestrator.isolation.auto-apply` | 검증자가 채택한 후보를 작업 공간에 자동 적용 | true |
+| `orchestrator.isolation.link-dirs` | worktree에 심볼릭 링크로 연결할 ignore 디렉터리 | node_modules, .venv, venv, target, build, .gradle |
+
+### 경쟁 모드 (코더 2개 이상)
+
+코더가 여러 개인 프리셋(1-1-2-1이 아니라 1-**3**-3-1처럼 코더 칸에 2개 이상)은 **경쟁 모드**로 돈다. 자세한 설계는 `docs/design-competition-isolation.md`.
+
+- 코더마다 git worktree(`<data-dir>/worktrees/<jobId>/c<k>`)를 만들어 같은 기준(HEAD + 커밋 안 한 변경)에서 출발한다. 원본 작업 공간은 채택 전까지 바뀌지 않는다.
+- 각 후보의 변경은 `<data-dir>/jobs/<id>/candidates/c<k>.patch`로 저장된다.
+- 리뷰어 수가 후보 수와 같으면 1:1로 해당 worktree 안에서 리뷰한다(테스트 실행 가능). 다르면 작업 공간에서 모든 후보를 본다.
+- 검증자는 마지막 줄에 `채택: 후보 N`을 쓰고, 그 patch가 작업 공간에 미커밋 변경으로 적용된다. 판독 실패·충돌 시에는 적용하지 않고 작업 상세에서 수동으로 고른다.
+- 후보 일부가 실패해도 하나 이상 성공하면 계속한다. worktree는 작업이 끝나면 정리된다.
 
 ### Claude CLI 실연동에서 확인된 동작
 
@@ -150,6 +163,8 @@ Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.l
 | POST | `/api/jobs/batch` | 여러 명령을 한 번에 |
 | POST | `/api/jobs/preview` | 실행 없이 단계 그래프만 |
 | POST | `/api/jobs/{id}/cancel` | 취소 |
+| POST | `/api/jobs/{id}/apply?candidate=k` | 경쟁 모드 후보 k의 patch를 작업 공간에 수동 적용 (검증자 선택 덮어쓰기 가능) |
+| GET | `/api/jobs/{id}/candidates/{k}/patch` | 후보 k의 diff 원문 |
 | GET | `/api/jobs/{id}/events` | SSE: `job` 스냅샷 + `log` 이벤트 (`?after=seq`로 이어받기) |
 | GET | `/api/jobs/{id}/logs?level=SUMMARY|DETAIL` | 로그 조회 |
 | GET | `/api/events` | SSE: 전체 Job 변경 |

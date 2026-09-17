@@ -65,6 +65,18 @@ public class JobController {
         jobs.delete(id);
     }
 
+    /** Applies one candidate's patch to the workspace by hand (also overrides the verifier's choice). */
+    @PostMapping("/{id}/apply")
+    public JobSnapshot apply(@PathVariable String id, @RequestParam int candidate) {
+        return jobs.applyCandidate(id, candidate);
+    }
+
+    /** The saved diff of one competing candidate. */
+    @GetMapping(value = "/{id}/candidates/{index}/patch", produces = MediaType.TEXT_PLAIN_VALUE)
+    public String candidatePatch(@PathVariable String id, @PathVariable int index) {
+        return jobs.candidatePatch(id, index);
+    }
+
     @GetMapping("/{id}/logs")
     public List<JobEvent> logs(
             @PathVariable String id,

@@ -1,6 +1,7 @@
 package dev.orchestrator.server.job;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -120,6 +121,29 @@ class JobServiceTest {
         assertEquals(JobStatus.SUCCEEDED, await(service, batch.get(0).id()).status());
         assertEquals(JobStatus.SUCCEEDED, await(service, batch.get(1).id()).status());
         assertEquals(JobStatus.CANCELLED, service.get(batch.get(2).id()).status());
+    }
+
+    @Test
+    void bestOfThreeRecordsCandidatesAndDecisionInSnapshot() throws Exception {
+        JobSnapshot done = await(service, service.submit(new ExecutionRequest("best-of-3", "feature", List.of(), "ko")).id());
+
+        assertEquals(JobStatus.SUCCEEDED, done.status());
+        assertEquals(List.of(1, 2, 3), done.candidates().stream().map(JobCandidate::index).toList());
+        assertEquals(List.of(1, 2, 3), done.steps().stream().filter(s -> s.stage() == 2).map(JobStep::candidate).toList());
+        assertTrue(done.candidates().stream().allMatch(JobCandidate::empty), "stub coders change nothing");
+        assertEquals(0, done.chosenCandidate(), "stub verifier gives no decision");
+        assertFalse(done.applied());
+        assertTrue(done.decisionNote().contains("판독하지 못했습니다"), done.decisionNote());
+        assertTrue(done.result().endsWith("> " + done.decisionNote()));
+        assertEquals("", service.candidatePatch(done.id(), 2));
+        assertThrows(IllegalStateException.class, () -> service.applyCandidate(done.id(), 2), "empty candidate cannot be applied");
+        assertThrows(IllegalArgumentException.class, () -> service.applyCandidate(done.id(), 9));
+        assertTrue(Files.isRegularFile(tempDir.resolve("jobs").resolve(done.id()).resolve("candidates").resolve("c3.patch")));
+        assertFalse(Files.exists(tempDir.resolve("worktrees").resolve(done.id())), "worktrees cleaned up");
+
+        JobService reloaded = new JobService(orchestration, new JobStore(tempDir.resolve("jobs")), 1);
+        assertEquals(3, reloaded.get(done.id()).candidates().size(), "candidates survive a restart");
+        reloaded.shutdown();
     }
 
     @Test

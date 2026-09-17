@@ -3,6 +3,11 @@ package dev.orchestrator.server.job;
 import dev.orchestrator.application.ExecutionManager;
 import dev.orchestrator.application.ExecutionObserver;
 import dev.orchestrator.application.ExecutionStep;
+import dev.orchestrator.application.IsolationSettings;
+import dev.orchestrator.isolation.CandidatePatch;
+import dev.orchestrator.isolation.IsolationException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import dev.orchestrator.domain.ExecutionReport;
 import dev.orchestrator.domain.ExecutionRequest;
 import dev.orchestrator.domain.ExecutionResult;
@@ -145,6 +150,55 @@ public class JobService {
         store.delete(id);
     }
 
+    /** Applies candidate {@code index}'s patch to the workspace by hand (also to override the verifier's choice). */
+    public JobSnapshot applyCandidate(String id, int index) {
+        Job job = job(id);
+        if (!job.status().isTerminal()) {
+            throw new IllegalStateException("작업이 끝난 뒤에만 후보를 적용할 수 있습니다");
+        }
+        JobCandidate candidate = job.candidate(index).orElseThrow(() -> new IllegalArgumentException("후보 " + index + "이(가) 없습니다"));
+        if (candidate.empty()) {
+            throw new IllegalStateException("후보 " + index + "은(는) 변경이 없습니다");
+        }
+        IsolationSettings settings = orchestration.manager().isolationSettings();
+        if (!settings.enabled()) {
+            throw new IllegalStateException("작업 공간 격리가 꺼져 있어 적용할 수 없습니다");
+        }
+        Path patchFile = Path.of(candidate.patchFile());
+        String patchText;
+        try {
+            patchText = Files.readString(patchFile);
+        } catch (IOException e) {
+            throw new IllegalStateException("patch 파일을 읽을 수 없습니다: " + patchFile);
+        }
+        CandidatePatch patch = new CandidatePatch(index, "", "", candidate.stat(), patchText, patchFile,
+                candidate.filesChanged(), candidate.insertions(), candidate.deletions());
+        try {
+            settings.isolation().apply(patch, settings.workspace());
+        } catch (IsolationException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
+        String note = "후보 " + index + " 수동 적용됨 (" + candidate.summary() + ")";
+        job.markApplied(index, note);
+        emit(job, JobEventLevel.SUMMARY, null, note);
+        store.save(job.snapshot());
+        bus.publishJob(job.snapshot());
+        return job.snapshot();
+    }
+
+    /** The saved diff of one candidate ("" when it changed nothing). */
+    public String candidatePatch(String id, int index) {
+        JobCandidate candidate = job(id).candidate(index).orElseThrow(() -> new IllegalArgumentException("후보 " + index + "이(가) 없습니다"));
+        if (candidate.patchFile() == null) {
+            return "";
+        }
+        try {
+            return Files.readString(Path.of(candidate.patchFile()));
+        } catch (IOException e) {
+            throw new IllegalStateException("patch 파일을 읽을 수 없습니다: " + candidate.patchFile());
+        }
+    }
+
     public List<JobEvent> events(String id, long after, JobEventLevel level) {
         return job(id).eventsAfter(after, level);
     }
@@ -183,6 +237,9 @@ public class JobService {
         ExecutionManager manager = orchestration.manager();
         try {
             ExecutionReport report = manager.execute(job.request(), new Observer(job), job::isCancelRequested, job.id());
+            if (!report.candidates().isEmpty()) {
+                job.setDecision(report.chosenCandidate(), report.applied(), report.decisionNote());
+            }
             job.finish(JobStatus.SUCCEEDED, null, report.finalContent());
             emit(job, JobEventLevel.SUMMARY, null, "성공");
         } catch (ModuleExecutionException e) {
@@ -245,7 +302,7 @@ public class JobService {
         @Override
         public void onPlan(List<ExecutionStep> steps) {
             job.setPlan(steps.stream().map(step -> new JobStep(step.id(), step.label(), step.moduleName(), step.role(),
-                    step.stage(), step.dependsOn(), StepStatus.PENDING, null, null, null)).toList());
+                    step.stage(), step.candidate(), step.dependsOn(), StepStatus.PENDING, null, null, null)).toList());
             store.save(job.snapshot());
             bus.publishJob(job.snapshot());
         }
@@ -267,6 +324,13 @@ public class JobService {
                 }
             }
             job.updateStep(step.id(), StepStatus.DONE, null);
+            store.save(job.snapshot());
+            bus.publishJob(job.snapshot());
+        }
+
+        @Override
+        public void onCandidate(ExecutionStep step, CandidatePatch patch, ExecutionResult result) {
+            job.addCandidate(JobCandidate.from(patch, result.label(), step.id()));
             store.save(job.snapshot());
             bus.publishJob(job.snapshot());
         }

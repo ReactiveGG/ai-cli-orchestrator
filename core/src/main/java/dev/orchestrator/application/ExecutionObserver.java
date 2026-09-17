@@ -22,6 +22,10 @@ public interface ExecutionObserver {
     default void onStepFailed(ExecutionStep step, Throwable error) {
     }
 
+    /** A competing coder finished and its changes were captured (after {@link #onStepFinished}). */
+    default void onCandidate(ExecutionStep step, dev.orchestrator.isolation.CandidatePatch patch, ExecutionResult result) {
+    }
+
     default void onSummary(ExecutionStep step, String line) {
     }
 
