@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Command as CommandIcon, LayoutDashboard, ListChecks, Settings2 } from 'lucide-react'
+import { Command as CommandIcon, ExternalLink, LayoutDashboard, ListChecks, Settings2 } from 'lucide-react'
 import { api, subscribe, MOCK } from './lib/api'
 import type { Job } from './lib/types'
 import { CommandPalette } from './components/CommandPalette'
@@ -37,6 +37,8 @@ export default function App() {
   const [live, setLive] = useState(false)
 
   const initial = useQuery({ queryKey: ['jobs'], queryFn: api.jobs })
+  const settings = useQuery({ queryKey: ['settings'], queryFn: api.settings, staleTime: 60_000 })
+  const catalog = useQuery({ queryKey: ['catalog'], queryFn: api.catalog, staleTime: 60_000 })
   useEffect(() => {
     if (initial.data) setJobs(initial.data)
   }, [initial.data])
@@ -126,7 +128,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
+      <main className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 pb-12 pt-4">
         {view === 'dashboard' && (
           <>
             <DashboardPage jobs={jobs} />
@@ -140,9 +142,29 @@ export default function App() {
         {view === 'config' && <ConfigPage onRun={(preset) => openPaletteWith(preset)} />}
       </main>
 
+      <footer className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-1">
+          <span className="font-medium text-slate-700 dark:text-slate-200">AI CLI Orchestrator <span className="mono font-normal text-slate-400">v0.1.0</span></span>
+          <span>플래너 → 코더 → 리뷰어 → 검증자 · 프리셋 {catalog.data?.flows.length ?? '–'}개</span>
+          {settings.data && <span title={settings.data.workspace}>작업 공간 <span className="mono">{shorten(settings.data.workspace)}</span></span>}
+          {settings.data && <span title={settings.data.routingFile}>설정 <span className="mono">{shorten(settings.data.routingFile)}</span></span>}
+          <span className="ml-auto flex items-center gap-4">
+            <span>{jobs.length}개 작업 · 실행 {running} · 대기 {queued}</span>
+            <a href="https://github.com/ReactiveGG/ai-cli-orchestrator" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-slate-800 dark:hover:text-slate-100">GitHub <ExternalLink size={11} /></a>
+            <span className="text-slate-400">단축키 <kbd className="rounded border border-slate-300 px-1 text-[10px] dark:border-slate-600">Ctrl K</kbd> 명령</span>
+          </span>
+        </div>
+      </footer>
+
       <CommandPalette open={paletteOpen} initialPreset={palettePreset} onClose={() => { setPaletteOpen(false); setPalettePreset(undefined) }} onSubmitted={onSubmitted} />
     </div>
   )
+}
+
+/** Keeps a long path readable in the footer: first segment … last two segments. */
+function shorten(path: string): string {
+  const parts = path.split(/[\\/]+/).filter(Boolean)
+  return parts.length <= 3 ? path : `${parts[0]}/…/${parts.slice(-2).join('/')}`
 }
 
 function notify(job: Job) {
