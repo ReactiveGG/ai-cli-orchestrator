@@ -26,7 +26,8 @@ public record OrchestratorProperties(
         @DefaultValue("10m") Duration moduleTimeout,
         @DefaultValue("60s") Duration idleWarning,
         @DefaultValue Map<String, ModuleSettings> modules,
-        @DefaultValue Status status
+        @DefaultValue Status status,
+        @DefaultValue Isolation isolation
 ) {
     /**
      * @param model        model alias/name passed to the CLI ({@code --model}), null = CLI default
@@ -44,6 +45,24 @@ public record OrchestratorProperties(
     ) {
     }
 
+    /**
+     * Competition mode: each competing coder gets its own git worktree.
+     *
+     * @param enabled       turn candidate isolation on (presets with 2+ coders need it)
+     * @param linkDirs      ignored directories symlinked from the workspace into every worktree
+     * @param autoApply     apply the verifier's chosen candidate to the workspace automatically
+     * @param keepWorktrees keep worktrees after the run (debugging)
+     * @param maxPatchChars diff characters per candidate passed to reviewers/verifier
+     */
+    public record Isolation(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue({"node_modules", ".venv", "venv", "target", "build", ".gradle"}) List<String> linkDirs,
+            @DefaultValue("true") boolean autoApply,
+            @DefaultValue("false") boolean keepWorktrees,
+            @DefaultValue("40000") int maxPatchChars
+    ) {
+    }
+
     public record Status(
             @DefaultValue("https://status.claude.com/api/v2/status.json") String anthropicStatusUrl,
             @DefaultValue("60s") Duration cacheTtl
@@ -56,6 +75,10 @@ public record OrchestratorProperties(
 
     public Path jobsDir() {
         return dataDir.resolve("jobs");
+    }
+
+    public Path worktreesDir() {
+        return dataDir.resolve("worktrees");
     }
 
     public Path workspaceOrCwd() {

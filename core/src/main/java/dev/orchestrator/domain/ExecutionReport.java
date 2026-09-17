@@ -1,15 +1,31 @@
 package dev.orchestrator.domain;
 
+import dev.orchestrator.isolation.CandidatePatch;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** Everything produced by one orchestrated run of a request. */
+/**
+ * Everything produced by one orchestrated run of a request.
+ *
+ * @param candidates      patches of the competing coders (empty unless the coder stage ran N ≥ 2)
+ * @param chosenCandidate candidate number the verifier adopted, or 0 when none/undecidable
+ * @param applied         whether the chosen candidate was applied to the workspace
+ * @param decisionNote    human-readable outcome of the decision/apply step, or null
+ */
 public record ExecutionReport(
         ExecutionRequest request,
         FlowDefinition flow,
         CompiledPrompt prompt,
-        List<ExecutionResult> results
+        List<ExecutionResult> results,
+        List<CandidatePatch> candidates,
+        int chosenCandidate,
+        boolean applied,
+        String decisionNote
 ) {
+    public ExecutionReport(ExecutionRequest request, FlowDefinition flow, CompiledPrompt prompt, List<ExecutionResult> results) {
+        this(request, flow, prompt, results, List.of(), 0, false, null);
+    }
+
     public TokenUsage totalUsage() {
         TokenUsage total = TokenUsage.ZERO;
         for (ExecutionResult result : results) {
@@ -35,11 +51,9 @@ public record ExecutionReport(
         }
         int last = results.get(results.size() - 1).stage();
         List<ExecutionResult> tail = results.stream().filter(r -> r.stage() == last).toList();
-        if (tail.size() == 1) {
-            return tail.get(0).content();
-        }
-        return tail.stream()
+        String body = tail.size() == 1 ? tail.get(0).content() : tail.stream()
                 .map(r -> "## " + r.label() + System.lineSeparator() + r.content())
                 .collect(Collectors.joining(System.lineSeparator() + System.lineSeparator()));
+        return decisionNote == null ? body : body + System.lineSeparator() + System.lineSeparator() + "> " + decisionNote;
     }
 }

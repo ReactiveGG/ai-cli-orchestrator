@@ -159,20 +159,20 @@ class ExecutionManagerTest {
     }
 
     @Test
-    void bestOfThreePresetFansOutCodersAndReviewers() {
+    void bestOfThreePlanMarksCandidatesAndRefusesToRunWithoutIsolation() {
         RecordingModule claude = new RecordingModule("claude");
         ExecutionManager manager = manager(FlowConfig.defaultConfig(), claude);
 
-        ExecutionReport report = manager.execute(new ExecutionRequest("best-of-3", "feature x", List.of(), "ko"), ExecutionObserver.NOOP, () -> false);
-
-        assertEquals(List.of(1, 2, 2, 2, 3, 3, 3, 4), report.results().stream().map(ExecutionResult::stage).toList());
-        assertEquals(8, claude.prompts.size());
-        CompiledPrompt verifier = claude.prompts.get(7);
-        assertEquals(3, verifier.body().split("## 이전 단계 2 결과", -1).length - 1, "verifier sees all three implementations");
-        assertEquals(3, verifier.body().split("## 이전 단계 3 결과", -1).length - 1, "verifier sees all three reviews");
         List<ExecutionStep> plan = manager.plan(FlowConfig.defaultConfig().flow("best-of-3"));
         assertEquals(List.of("s2/coder@claude", "s2/coder@claude#1", "s2/coder@claude#2"),
                 plan.stream().filter(s -> s.stage() == 2).map(ExecutionStep::id).toList());
+        assertEquals(List.of(1, 2, 3), plan.stream().filter(s -> s.stage() == 2).map(ExecutionStep::candidate).toList());
+        assertTrue(plan.stream().filter(s -> s.stage() == 3).allMatch(s -> s.candidate() == 0), "reviewers are not candidates");
+
+        ModuleExecutionException error = assertThrows(ModuleExecutionException.class,
+                () -> manager.execute(new ExecutionRequest("best-of-3", "feature x", List.of(), "ko"), ExecutionObserver.NOOP, () -> false));
+        assertTrue(error.getMessage().contains("격리"), error.getMessage());
+        assertTrue(claude.prompts.isEmpty(), "refused before spending tokens");
     }
 
     @Test

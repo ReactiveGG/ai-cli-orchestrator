@@ -26,6 +26,11 @@ public interface ExecutionContext {
         return AgentOptions.NONE;
     }
 
+    /** Directory the agent must run in (its isolated candidate worktree), or null for the module default. */
+    default java.nio.file.Path workingDirectory() {
+        return null;
+    }
+
     static ExecutionContext noop() {
         return new ExecutionContext() {
             @Override

@@ -182,7 +182,7 @@ public class JobService {
         bus.publishJob(job.snapshot());
         ExecutionManager manager = orchestration.manager();
         try {
-            ExecutionReport report = manager.execute(job.request(), new Observer(job), job::isCancelRequested);
+            ExecutionReport report = manager.execute(job.request(), new Observer(job), job::isCancelRequested, job.id());
             job.finish(JobStatus.SUCCEEDED, null, report.finalContent());
             emit(job, JobEventLevel.SUMMARY, null, "성공");
         } catch (ModuleExecutionException e) {

@@ -1,9 +1,11 @@
 package dev.orchestrator.server.config;
 
 import dev.orchestrator.application.ExecutionManager;
+import dev.orchestrator.application.IsolationSettings;
 import dev.orchestrator.application.PromptCompiler;
 import dev.orchestrator.config.FlowConfig;
 import dev.orchestrator.domain.AiModule;
+import dev.orchestrator.isolation.GitWorktreeIsolation;
 import dev.orchestrator.module.CliModuleSettings;
 import dev.orchestrator.module.ModuleFactory;
 import dev.orchestrator.server.config.OrchestratorProperties.ModuleSettings;
@@ -54,7 +56,18 @@ public class OrchestrationService {
     public synchronized void reload(FlowConfig config) {
         config.validate();
         AiModule[] modules = MODULE_NAMES.stream().map(this::createModule).toArray(AiModule[]::new);
-        manager.set(new ExecutionManager(new PromptCompiler(), config, properties.moduleTimeout(), properties.idleWarning(), modules));
+        manager.set(new ExecutionManager(new PromptCompiler(), config, properties.moduleTimeout(), properties.idleWarning(), isolationSettings(), modules));
+    }
+
+    /** Candidate worktrees live under {@code <data-dir>/worktrees}; patches under {@code <data-dir>/jobs/<id>/candidates}. */
+    private IsolationSettings isolationSettings() {
+        OrchestratorProperties.Isolation iso = properties.isolation();
+        if (iso == null || !iso.enabled()) {
+            return IsolationSettings.DISABLED;
+        }
+        return new IsolationSettings(
+                new GitWorktreeIsolation(properties.worktreesDir(), iso.linkDirs()),
+                properties.workspaceOrCwd(), properties.jobsDir(), iso.autoApply(), iso.keepWorktrees(), iso.maxPatchChars());
     }
 
     private AiModule createModule(String name) {

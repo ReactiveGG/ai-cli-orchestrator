@@ -53,6 +53,14 @@ orchestrator:
       mode: AUTO
       command: codex
       extra-args: []
+  # Competition mode (presets with 2+ coders): each coder works in its own git worktree under
+  # <data-dir>/worktrees; the verifier's chosen candidate is applied to the workspace as uncommitted changes.
+  isolation:
+    enabled: true
+    auto-apply: true
+    keep-worktrees: false
+    max-patch-chars: 40000
+    link-dirs: [node_modules, .venv, venv, target, build, .gradle]
   status:
     anthropic-status-url: https://status.claude.com/api/v2/status.json
     cache-ttl: 60s

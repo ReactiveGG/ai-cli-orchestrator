@@ -57,7 +57,8 @@ public abstract class CliAiModule implements AiModule {
         StringBuilder output = new StringBuilder();
         TokenUsage[] usage = { TokenUsage.ZERO };
         String[] failure = { null };
-        int exit = ProcessRunner.run(name(), argv, settings.workingDirectory(), prompt.body(), context, line -> {
+        java.nio.file.Path cwd = context.workingDirectory() != null ? context.workingDirectory() : settings.workingDirectory();
+        int exit = ProcessRunner.run(name(), argv, cwd, prompt.body(), context, line -> {
             context.detail(line);
             JsonNode event = parse(line);
             if (event != null) {

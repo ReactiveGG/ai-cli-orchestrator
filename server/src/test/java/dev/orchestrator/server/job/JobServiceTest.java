@@ -29,13 +29,18 @@ class JobServiceTest {
     private OrchestrationService orchestration;
 
     @BeforeEach
-    void setUp() throws IOException {
+    void setUp() throws IOException, InterruptedException {
+        // the workspace must be a git repo for presets with several coders (best-of-3)
+        Process git = new ProcessBuilder("git", "init", "-q").directory(tempDir.toFile()).redirectErrorStream(true).start();
+        git.getInputStream().readAllBytes();
+        git.waitFor();
         OrchestratorProperties properties = new OrchestratorProperties(
                 tempDir, tempDir, 1, Duration.ofSeconds(30), Duration.ofSeconds(5),
                 Map.of(
                         "claude", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "claude", List.of(), null, null, List.of()),
                         "codex", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "codex", List.of(), null, null, List.of())),
-                new OrchestratorProperties.Status("", Duration.ofSeconds(60)));
+                new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
+                new OrchestratorProperties.Isolation(true, List.of(), true, false, 40_000));
         orchestration = new OrchestrationService(properties);
         service = new JobService(orchestration, new JobStore(properties.jobsDir()), 1);
     }
