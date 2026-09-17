@@ -6,11 +6,13 @@ import { FlowDiagram } from './FlowDiagram'
 import { LogView } from './LogView'
 import { CandidatePanel } from './CandidatePanel'
 import { StatusBadge } from './StatusBadge'
+import { ErrorBox, Loading } from './Feedback'
+import { errorMessage } from '../lib/errors'
 import { formatCost, formatDuration, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
 
-export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: string) => void }) {
-  const initial = useQuery({ queryKey: ['job', jobId], queryFn: () => api.job(jobId) })
+export function JobDetail({ jobId, onCancel, onBack }: { jobId: string; onCancel: (id: string) => void; onBack?: () => void }) {
+  const initial = useQuery({ queryKey: ['job', jobId], queryFn: () => api.job(jobId), retry: false })
   const [job, setJob] = useState<Job | null>(null)
   const [events, setEvents] = useState<JobEvent[]>([])
   const [connected, setConnected] = useState(false)
@@ -36,7 +38,16 @@ export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: s
   }, [jobId])
 
   const current = job ?? initial.data
-  if (!current) return <div className="p-6 text-sm text-slate-400">불러오는 중…</div>
+  if (!current && initial.isError) {
+    const notFound = /찾을 수 없|404|No job|not found/i.test(errorMessage(initial.error))
+    return (
+      <div className="space-y-3">
+        <ErrorBox title={notFound ? '작업을 찾을 수 없습니다' : '작업을 불러오지 못했습니다'} message={notFound ? `${jobId} — 삭제됐거나 다른 데이터 디렉터리의 작업입니다.` : errorMessage(initial.error)} onRetry={notFound ? undefined : () => initial.refetch()} />
+        {onBack && <button onClick={onBack} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">목록으로</button>}
+      </div>
+    )
+  }
+  if (!current) return <Loading label="작업 불러오는 중…" />
 
   const active = current.status === 'RUNNING' || current.status === 'QUEUED'
   const idleSec = current.status === 'RUNNING' && current.lastOutputAt ? Math.floor((now - new Date(current.lastOutputAt).getTime()) / 1000) : 0
@@ -47,7 +58,7 @@ export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: s
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={current.status} />
           <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800 dark:bg-violet-900 dark:text-violet-200">{current.flowLabel}</span>
-          <span className="mono text-sm font-medium">{current.command}</span>
+          <span className="mono min-w-0 break-all text-sm font-medium">{current.command}</span>
           <span className="ml-auto text-xs text-slate-500">
             {formatDuration(current.startedAt, current.finishedAt, now)}
             {idleSec > 30 && <span className="ml-2 text-amber-600">출력 없음 {idleSec}s</span>}
@@ -76,7 +87,7 @@ export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: s
       </div>
       <CandidatePanel job={current} />
       <div className="min-h-64 flex-1">
-        <LogView events={events} jobId={current.id} />
+        <LogView events={events} jobId={current.id} queued={current.status === 'QUEUED'} />
       </div>
       {current.result && (
         <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">

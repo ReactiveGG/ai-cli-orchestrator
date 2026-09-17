@@ -7,6 +7,8 @@ import type { AgentDto, FlowConfig, FlowDto, StageDto } from '../lib/types'
 import { FlowDiagram, type FlowStep } from '../components/FlowDiagram'
 import { agent, buildPlan, signatureOf } from '../lib/plan'
 import { SettingsPanel } from '../components/SettingsPanel'
+import { ErrorBox, Loading, Message } from '../components/Feedback'
+import { errorMessage } from '../lib/errors'
 
 /** The pipeline is fixed; a preset only decides how many models run each stage. */
 const PIPELINE = ['planner', 'coder', 'reviewer', 'verifier'] as const
@@ -48,8 +50,9 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
     setMessage(msg); setYaml(null)
     qc.invalidateQueries({ queryKey: ['catalog'] }); qc.invalidateQueries({ queryKey: ['routing'] })
   }
-  const save = useMutation({ mutationFn: () => api.saveRouting(cfg!), onSuccess: (d) => adopt(d, '저장했습니다. 새 작업부터 적용됩니다.'), onError: (e: Error) => setMessage(`저장 실패: ${e.message}`) })
-  const reset = useMutation({ mutationFn: () => api.resetRouting(), onSuccess: (d) => adopt(d, '기본 프리셋 3개로 초기화했습니다.') })
+  const save = useMutation({ mutationFn: () => api.saveRouting(cfg!), onSuccess: (d) => adopt(d, '저장했습니다. 새 작업부터 적용됩니다.'), onError: (e: Error) => setMessage(`저장 실패: ${errorMessage(e)}`) })
+  const reset = useMutation({ mutationFn: () => api.resetRouting(), onSuccess: (d) => adopt(d, '기본 프리셋 3개로 초기화했습니다.'), onError: (e: Error) => setMessage(`초기화 실패: ${errorMessage(e)}`) })
+  const showYaml = async () => { if (yaml) { setYaml(null); return } try { setYaml(await api.routingYaml()) } catch (e) { setMessage(`YAML을 불러오지 못했습니다: ${errorMessage(e)}`) } }
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
   const updatePreset = (fn: (p: FlowDto) => FlowDto) => setCfg((c) => c && ({ ...c, flows: { ...c.flows, [selected]: fn(structuredClone(c.flows[selected])) } }))
@@ -69,7 +72,10 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
   }
 
   const plan = useMemo<FlowStep[]>(() => (preset && cfg ? buildPlan(preset, cfg) : []), [preset, cfg])
-  if (!cfg) return <div className="p-6 text-sm text-slate-400">불러오는 중…</div>
+  if (!cfg) {
+    if (routing.isError) return <ErrorBox title="프리셋 구성을 불러오지 못했습니다" message={errorMessage(routing.error)} onRetry={() => routing.refetch()} />
+    return <Loading label="프리셋 구성 불러오는 중…" />
+  }
 
   const addPreset = () => {
     const name = newPreset.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
@@ -82,8 +88,8 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e: DragStartEvent) => setDragging(String(e.active.id))} onDragEnd={onDragEnd}>
-      <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
-        <aside className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-1 text-sm font-semibold">프리셋</div>
             <div className="mb-2 text-xs text-slate-500">플래너-코더-리뷰어-검증자 각 단계의 에이전트 수</div>
@@ -115,7 +121,7 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
           </div>
         </aside>
 
-        <section className="space-y-4">
+        <section className="min-w-0 space-y-4">
           {preset && (
             <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex flex-wrap items-center gap-3">
@@ -166,12 +172,12 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">프리셋 저장 및 적용</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">{save.isPending ? '저장 중…' : '프리셋 저장 및 적용'}</button>
             <button onClick={() => reset.mutate()} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">기본 프리셋으로 (1-1-1-1 · 1-1-2-1 · 1-3-3-1)</button>
-            <button onClick={async () => setYaml(yaml ? null : await api.routingYaml())} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">{yaml ? 'YAML 닫기' : '저장된 YAML 보기'}</button>
-            <span className="text-sm text-slate-500">{message}</span>
+            <button onClick={showYaml} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">{yaml ? 'YAML 닫기' : '저장된 YAML 보기'}</button>
+            <Message text={message} />
           </div>
-          {yaml && <pre className="mono overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-950">{yaml}</pre>}
+          {yaml && <pre className="mono max-w-full overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-950">{yaml}</pre>}
           <div id="config-settings" />
           <SettingsPanel />
         </section>
@@ -265,7 +271,7 @@ function RolesEditor({ roles, open, setOpen, onChange }: { roles: FlowConfig['ro
         {shown.map((name) => { const r = roles[name]; return (
           <div key={name} className="py-2">
             <button onClick={() => setOpen(open === name ? null : name)} className="flex w-full items-center gap-2 text-left text-sm">
-              <span className="mono w-20 text-violet-700 dark:text-violet-300">{name}</span><span className="font-medium">{r.label}</span><span className="truncate text-xs text-slate-500">{r.instructions.split('\n')[0]}</span>
+              <span className="mono w-20 shrink-0 text-violet-700 dark:text-violet-300">{name}</span><span className="shrink-0 whitespace-nowrap font-medium">{r.label}</span><span className="min-w-0 truncate text-xs text-slate-500">{r.instructions.split('\n')[0]}</span>
             </button>
             {open === name && (
               <div className="mt-2 grid gap-2">

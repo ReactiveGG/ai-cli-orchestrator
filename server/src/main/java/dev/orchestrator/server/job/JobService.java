@@ -288,13 +288,20 @@ public class JobService {
     }
 
     private void emit(Job job, JobEventLevel level, String stepId, String message) {
-        JobEvent event = job.addEvent(level, stepId, message);
-        store.append(event);
+        JobEvent event;
+        // Parallel agents log concurrently; keep the file in the same order as memory so a
+        // restart (which sorts by timestamp, stable) restores the exact sequence even when two
+        // events share a timestamp (Windows clock granularity made this flaky).
+        synchronized (job) {
+            event = job.addEvent(level, stepId, message);
+            store.append(event);
+        }
         bus.publishLog(event);
     }
 
     @PreDestroy
     void shutdown() {
+        bus.shutdown();
         executor.shutdownNow();
         try {
             executor.awaitTermination(5, TimeUnit.SECONDS);

@@ -178,7 +178,7 @@ function makeJob(r: Parsed, createdAt = Date.now()): MockJob {
   const flow = config.flows[r.flow]
   const steps: JobStep[] = planFor(r.flow).map((s) => ({ id: s.id, label: s.label, module: s.moduleName, role: s.role, stage: s.stage, candidate: s.candidate, dependsOn: s.dependsOn, status: 'PENDING', startedAt: null, finishedAt: null, error: null }))
   const job: MockJob = {
-    id: `${createdAt}-${(idCounter++).toString(16).padStart(4, '0')}`, status: 'QUEUED', command: display(r), flow: r.flow, flowLabel: flow.label ?? r.flow, target: r.target, focus: r.focus, language: r.language,
+    id: `mock-${(idCounter++).toString().padStart(4, '0')}`, status: 'QUEUED', command: display(r), flow: r.flow, flowLabel: flow.label ?? r.flow, target: r.target, focus: r.focus, language: r.language,
     createdAt: new Date(createdAt).toISOString(), startedAt: null, finishedAt: null, lastOutputAt: null, steps, usage: zero(), usageByModule: {}, error: null, result: null, eventCount: 0, events: [], ticks: 0,
     candidates: [], chosenCandidate: 0, applied: false, decisionNote: null, patches: {},
   }

@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import type { Job } from '../lib/types'
 import { StatTile } from '../components/StatTile'
 import { formatCost, formatTime, formatTokens } from '../lib/format'
+import { ErrorBox } from '../components/Feedback'
+import { errorMessage } from '../lib/errors'
 
 export function DashboardPage({ jobs }: { jobs: Job[] }) {
   const dash = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 10_000 })
@@ -21,7 +23,8 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
     : remote.indicator === 'none' ? 'ok' : remote.indicator === 'minor' ? 'warn' : 'bad'
 
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {dash.isError && <ErrorBox className="md:col-span-2 xl:col-span-4" title="대시보드를 불러오지 못했습니다" message={errorMessage(dash.error)} onRetry={() => dash.refetch()} />}
       <StatTile
         label="오늘 토큰 사용량"
         value={d ? formatTokens(d.usage.today.inputTokens + d.usage.today.outputTokens) : '…'}
@@ -50,15 +53,18 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
         value={`${running} 실행 중`}
         hint={`대기 ${queued} · 실패 ${failed} · 동시 실행 상한 ${d?.concurrency ?? '-'}`}
       />
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-1 flex items-center gap-3">
+      <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-4 dark:border-slate-800 dark:bg-slate-900">
+        <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">최근 7일 토큰</div>
           <span className="text-xs text-slate-400">{d ? `갱신 ${formatTime(d.generatedAt)} · 10초마다 자동` : '불러오는 중…'}</span>
           <button onClick={() => dash.refetch()} disabled={dash.isFetching} title="새로고침" className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
             <RefreshCw size={12} className={dash.isFetching ? 'animate-spin' : ''} /> 새로고침
           </button>
         </div>
-        <div className="h-56">{d && <TokenChart data={d.usage.last7Days} />}</div>
+        <div className="h-56 md:h-56">
+          {d ? (d.usage.last7Days.some((r) => r.inputTokens + r.outputTokens > 0) ? <TokenChart data={d.usage.last7Days} /> : <div className="flex h-full items-center justify-center text-sm text-slate-400">아직 토큰 사용 기록이 없습니다. 첫 작업을 실행하면 여기에 쌓입니다.</div>)
+            : dash.isError ? null : <div className="flex h-full items-center justify-center text-sm text-slate-400">불러오는 중…</div>}
+        </div>
       </div>
     </div>
   )

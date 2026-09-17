@@ -77,6 +77,10 @@ CI(GitHub Actions)는 push/PR마다 Ubuntu와 Windows에서 Java 테스트를, U
 - **대시보드**: 오늘/누적 토큰 사용량과 비용, 모듈별 사용량, 최근 7일 차트, Claude CLI 설치·버전과 Anthropic 상태 페이지, 작업 진행 현황.
 - **명령창 (Ctrl+K)**: 프리셋 칩(1-1-1-1, 1-1-2-1, 1-3-3-1 …)을 고르고 대상만 입력한다 (`"jwt refresh" --focus security`). 줄마다 `--preset name`으로 따로 지정할 수도 있다. 한 줄이 Job 하나이고, Shift+Enter로 줄을 추가하면 여러 Job이 한 번에 큐에 들어간다. 실행 전 다이어그램 미리보기를 보여준다.
 - **작업**: Job마다 프로세스 플로우 다이어그램(단계가 열, 병렬 에이전트가 행), **요약 로그**와 **상세 로그** 두 탭, 최종 결과.
+- **상태 표시**: 헤더의 점이 SSE 연결 상태다(연결 중 / 실시간 연결 / 서버 연결 끊김). 서버는 15초마다 `ping` 이벤트를 보내고, 브라우저는 40초 동안 아무 프레임도 없으면 스트림을 끊긴 것으로 보고 다시 연다. 서버가 죽으면 상단에 배너가 뜨고, 다시 켜면 몇 초 안에 자동으로 복구된다. 목록·대시보드·구성 로딩 실패는 각 영역에 "다시 시도" 버튼과 함께 표시되고, 알 수 없는 프리셋·옵션 같은 입력 오류는 명령창 하단에 한국어로 나온다.
+- **완료 알림**: 헤더의 종 아이콘을 누르면 브라우저 알림 권한을 요청하고(페이지 로드 시 자동으로 묻지 않음) 작업이 끝날 때 데스크톱 알림을 보낸다. 알림을 클릭하면 그 작업이 열린다. 설정은 브라우저별로 기억된다.
+- **삭제 확인**: 작업의 "삭제"는 한 번 누르면 4초 동안 "삭제 확인"으로 바뀌고, 그 안에 다시 눌러야 지워진다.
+- **URL**: `#dashboard`, `#jobs/<id>`, `#config`가 화면이고 `#command`는 명령창을 연 채로 시작한다. 다크 모드는 OS 설정을 따르며 실행 중 바뀌어도 반영된다. 400px 폭(모바일)에서도 가로 스크롤 없이 쓸 수 있다.
 - **구성**: 프리셋을 드래그 앤 드롭으로 만든다. "이 프리셋으로 실행" 버튼을 누르면 명령창이 그 프리셋으로 열린다. 아래 **서버 설정**에서 작업 공간, 동시 실행 수, 타임아웃, 모듈(모드·기본 모델·예산·허용 도구), 격리 옵션을 바꾸면 `<data-dir>/settings.yml`에 저장되고 새 작업부터 반영된다. `application.yml`은 기본값이고 화면에서 저장한 값이 우선한다.
 
 ## 프리셋 구성 (드래그 앤 드롭)
@@ -209,3 +213,5 @@ WSL 없이 Windows 네이티브로 돈다. 필요한 것: JDK 21, Git for Window
 
 - WSL에서 저장소가 `/mnt/c` 아래에 있으면 Gradle이 파일 권한을 바꾸지 못해 실패할 수 있다. `~/.gradle/gradle.properties`에 `buildDirBase=/home/<you>/.cache/ai-cli-orchestrator`를 넣으면 빌드 출력이 리눅스 파일시스템으로 간다.
 - Gradle configuration cache는 같은 이유로 꺼져 있다 (`gradle.properties`).
+- WSL에서 서버를 띄우고 Windows 브라우저로 열 때는 `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true`를 준다. JVM이 기본으로 `[::ffff:127.0.0.1]`(IPv6 매핑 주소)에 바인딩하면 WSL의 localhost 포워딩이 그 포트를 Windows로 넘겨주지 않는다. Node(Vite)는 IPv4로 바인딩해서 문제가 없다.
+- 브라우저 QA는 Windows Chrome을 헤드리스로 띄워 찍는다. `web/scripts/screenshot.ps1`은 DevTools 프로토콜로 뷰포트 크기·다크 모드를 지정하고 스크린샷을 저장한다 (`chrome.exe --headless=new --remote-debugging-port=9333` 실행 후 `powershell -File web/scripts/screenshot.ps1 -Url http://127.0.0.1:47120/#dashboard -Out shot.png -Width 400 -Dark`). `--screenshot` 플래그만 쓰면 창 최소 너비(약 500px) 때문에 400px 레이아웃을 볼 수 없다.

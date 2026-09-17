@@ -8,9 +8,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 })
 
-if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-  document.documentElement.classList.add('dark')
-}
+// Dark mode follows the OS setting, including changes while the page is open.
+const scheme = window.matchMedia('(prefers-color-scheme: dark)')
+const applyScheme = () => document.documentElement.classList.toggle('dark', scheme.matches)
+applyScheme()
+scheme.addEventListener('change', applyScheme)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

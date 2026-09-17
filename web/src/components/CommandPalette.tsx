@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type { Catalog, PlanStep } from '../lib/types'
 import { FlowDiagram } from './FlowDiagram'
+import { errorMessage } from '../lib/errors'
 
 /**
  * Ctrl+K palette. Pick a preset (how many agents per pipeline stage), then type
@@ -42,13 +43,13 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
       return jobs.map((j) => j.id)
     },
     onSuccess: (ids) => { setText(''); setError(null); onSubmitted(ids); onClose() },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error) => setError(errorMessage(e)),
   })
 
   useEffect(() => {
     if (!open || !lines[0]) { setPreview([]); return }
     const handle = window.setTimeout(() => {
-      api.preview({ commandLine: lines[0], flow: /--preset[ =]/.test(lines[0]) ? undefined : preset }).then((p) => { setPreview(p); setError(null) }).catch((e: Error) => { setPreview([]); setError(e.message) })
+      Promise.resolve().then(() => api.preview({ commandLine: lines[0], flow: /--preset[ =]|(^|\s)-p\s/.test(lines[0]) ? undefined : preset })).then((p) => { setPreview(p); setError(null) }).catch((e: Error) => { setPreview([]); setError(errorMessage(e)) })
     }, 250)
     return () => window.clearTimeout(handle)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,7 +62,7 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
   const apply = (replacement: string) => setText(replaceLastToken(text, replacement))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-4 pt-[10vh]" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-2 pt-[6vh] sm:p-4 sm:pt-[10vh]" onClick={onClose}>
       <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
         <Command shouldFilter={false} loop>
           <div className="border-b border-slate-200 p-3 dark:border-slate-800">
@@ -72,7 +73,8 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
                   {p.label} <span className="mono opacity-70">{p.signature}</span>
                 </button>
               ))}
-              {presets.length === 0 && !catalog.isLoading && <span className="text-slate-400">구성 화면에서 프리셋을 먼저 만드세요</span>}
+              {catalog.isError && <span className="text-rose-600 dark:text-rose-300">프리셋 목록을 불러오지 못했습니다: {errorMessage(catalog.error)}</span>}
+              {presets.length === 0 && !catalog.isLoading && !catalog.isError && <span className="text-slate-400">구성 화면에서 프리셋을 먼저 만드세요</span>}
             </div>
             <textarea
               autoFocus
@@ -115,11 +117,11 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
         )}
 
         <div className="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
-          <span className="text-rose-600">{error}</span>
+          <span className="min-w-0 break-words text-rose-600 dark:text-rose-300">{error}</span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">{lines.length}개 작업</span>
             <button onClick={() => submit.mutate()} disabled={submit.isPending || lines.length === 0} className="rounded-md bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">
-              {lines.length > 1 ? `${lines.length}개 실행` : '실행'}
+              {submit.isPending ? '제출 중…' : lines.length > 1 ? `${lines.length}개 실행` : '실행'}
             </button>
           </div>
         </div>
