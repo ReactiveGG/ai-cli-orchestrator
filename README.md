@@ -71,7 +71,7 @@ cd web && npm run dev:mock
 - **대시보드**: 오늘/누적 토큰 사용량과 비용, 모듈별 사용량, 최근 7일 차트, Claude CLI 설치·버전과 Anthropic 상태 페이지, 작업 진행 현황.
 - **명령창 (Ctrl+K)**: 프리셋 칩(1-1-1-1, 1-1-2-1, 1-3-3-1 …)을 고르고 대상만 입력한다 (`"jwt refresh" --focus security`). 줄마다 `--preset name`으로 따로 지정할 수도 있다. 한 줄이 Job 하나이고, Shift+Enter로 줄을 추가하면 여러 Job이 한 번에 큐에 들어간다. 실행 전 다이어그램 미리보기를 보여준다.
 - **작업**: Job마다 프로세스 플로우 다이어그램(단계가 열, 병렬 에이전트가 행), **요약 로그**와 **상세 로그** 두 탭, 최종 결과.
-- **구성**: 프리셋을 드래그 앤 드롭으로 만든다. "이 프리셋으로 실행" 버튼을 누르면 명령창이 그 프리셋으로 열린다.
+- **구성**: 프리셋을 드래그 앤 드롭으로 만든다. "이 프리셋으로 실행" 버튼을 누르면 명령창이 그 프리셋으로 열린다. 아래 **서버 설정**에서 작업 공간, 동시 실행 수, 타임아웃, 모듈(모드·기본 모델·예산·허용 도구), 격리 옵션을 바꾸면 `<data-dir>/settings.yml`에 저장되고 새 작업부터 반영된다. `application.yml`은 기본값이고 화면에서 저장한 값이 우선한다.
 
 ## 프리셋 구성 (드래그 앤 드롭)
 
@@ -169,6 +169,7 @@ Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.l
 | GET | `/api/jobs/{id}/logs?level=SUMMARY|DETAIL` | 로그 조회 |
 | GET | `/api/events` | SSE: 전체 Job 변경 |
 | GET/PUT | `/api/config/routing` | 프리셋 구성 조회/저장 (저장 시 즉시 반영) |
+| GET/PUT | `/api/config/settings` | 서버 설정 조회/저장 (`settings.yml`, 즉시 반영) |
 
 ## 개발 메모
 

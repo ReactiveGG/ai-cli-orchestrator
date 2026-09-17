@@ -49,6 +49,7 @@ const realApi = {
   resetRouting: (preset?: string) => request<FlowConfig>('/api/config/routing/reset', { method: 'POST', body: JSON.stringify(preset ? { preset } : {}) }),
   routingYaml: async () => (await fetch('/api/config/routing.yaml')).text(),
   settings: () => request<Settings>('/api/config/settings'),
+  saveSettings: (body: Settings) => request<Settings>('/api/config/settings', { method: 'PUT', body: JSON.stringify(body) }),
 }
 
 export const api: typeof realApi = MOCK ? mockApi : realApi

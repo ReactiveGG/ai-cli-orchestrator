@@ -212,13 +212,35 @@ export interface FlowConfig {
   fallback: Record<string, string>
 }
 
+export interface ModuleSettings {
+  mode: 'AUTO' | 'CLI' | 'STUB'
+  command: string
+  model: string | null
+  maxBudgetUsd: number | null
+  allowedTools: string[]
+  extraArgs: string[]
+}
+
+export interface IsolationSettings {
+  enabled: boolean
+  autoApply: boolean
+  keepWorktrees: boolean
+  maxPatchChars: number
+  linkDirs: string[]
+  exclude: string[]
+}
+
+/** Runtime settings (GET/PUT /api/config/settings). dataDir/routingFile/settingsFile are read-only. */
 export interface Settings {
   dataDir: string
-  workspace: string
   routingFile: string
+  settingsFile: string
+  workspace: string
   concurrency: number
   moduleTimeoutSeconds: number
   idleWarningSeconds: number
+  modules: Record<string, ModuleSettings>
+  isolation: IsolationSettings
 }
 
 export interface PlanStep {

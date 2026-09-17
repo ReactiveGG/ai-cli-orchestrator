@@ -269,6 +269,15 @@ seed()
 setInterval(tick, 900)
 
 const delay = <T,>(v: T, ms = 60): Promise<T> => new Promise((res) => setTimeout(() => res(v), ms))
+let mockSettings: Settings = {
+  dataDir: '~/.ai-orchestrator', routingFile: '~/.ai-orchestrator/orchestrator.yml', settingsFile: '~/.ai-orchestrator/settings.yml',
+  workspace: 'C:\\dev\\my-service', concurrency: CONCURRENCY, moduleTimeoutSeconds: 600, idleWarningSeconds: 60,
+  modules: {
+    claude: { mode: 'AUTO', command: 'claude', model: null, maxBudgetUsd: 2, allowedTools: ['Bash(git status*)', 'Bash(git diff*)', 'Bash(python3 -m pytest*)', 'Bash(npm test*)'], extraArgs: [] },
+    codex: { mode: 'AUTO', command: 'codex', model: null, maxBudgetUsd: null, allowedTools: [], extraArgs: [] },
+  },
+  isolation: { enabled: true, autoApply: true, keepWorktrees: false, maxPatchChars: 40000, linkDirs: ['node_modules', '.venv', 'target', 'build'], exclude: ['__pycache__', '*.pyc', '.DS_Store'] },
+}
 const find = (id: string): MockJob => { const j = jobs.find((x) => x.id === id); if (!j) throw new Error(`No job ${id}`); return j }
 const sorted = () => [...jobs].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(snapshot)
 const sum = (list: Job[]): TokenUsage => list.reduce((a, j) => ({ inputTokens: a.inputTokens + j.usage.inputTokens, outputTokens: a.outputTokens + j.usage.outputTokens, costUsd: a.costUsd + j.usage.costUsd }), zero())
@@ -309,7 +318,8 @@ export const mockApi = {
     y += Object.keys(config.fallback).length ? 'fallback:\n' + Object.entries(config.fallback).map(([k, v]) => `  ${k}: ${v}`).join('\n') + '\n' : 'fallback: {}\n'
     return y
   },
-  settings: (): Promise<Settings> => delay({ dataDir: '~/.ai-orchestrator', workspace: 'C:\\dev\\my-service', routingFile: '~/.ai-orchestrator/orchestrator.yml', concurrency: CONCURRENCY, moduleTimeoutSeconds: 600, idleWarningSeconds: 60 }),
+  settings: (): Promise<Settings> => delay(structuredClone(mockSettings)),
+  saveSettings: (body: Settings): Promise<Settings> => { mockSettings = structuredClone(body); return delay(structuredClone(mockSettings)) },
 }
 
 /** Timer-driven replacement for the SSE stream. */

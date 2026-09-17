@@ -67,7 +67,7 @@ public class ClaudeStatusService {
 
     private ModuleStatus describe(AiModule module) {
         boolean available = module.isAvailable();
-        String command = properties.moduleSettings(module.name()).command();
+        String command = orchestration.settings().module(module.name()).command();
         if (command == null || command.isBlank()) {
             command = module.name();
         }

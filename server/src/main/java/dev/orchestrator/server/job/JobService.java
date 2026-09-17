@@ -25,8 +25,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -48,11 +46,11 @@ public class JobService {
     private final OrchestrationService orchestration;
     private final JobStore store;
     private final JobEventBus bus = new JobEventBus();
-    private final ExecutorService executor;
+    private final java.util.concurrent.ThreadPoolExecutor executor;
     private final Map<String, Job> jobs = new ConcurrentHashMap<>();
     private final Map<String, Future<?>> futures = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
-    private final int concurrency;
+    private volatile int concurrency;
 
     @Autowired
     public JobService(OrchestrationService orchestration, OrchestratorProperties properties) throws IOException {
@@ -63,11 +61,12 @@ public class JobService {
         this.orchestration = orchestration;
         this.store = store;
         this.concurrency = Math.max(1, concurrency);
-        this.executor = Executors.newFixedThreadPool(this.concurrency, runnable -> {
-            Thread thread = new Thread(runnable, "job-runner");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.executor = new java.util.concurrent.ThreadPoolExecutor(this.concurrency, this.concurrency, 60, TimeUnit.SECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(), runnable -> {
+                    Thread thread = new Thread(runnable, "job-runner");
+                    thread.setDaemon(true);
+                    return thread;
+                });
         for (JobSnapshot snapshot : store.loadAll()) {
             Job job = Job.fromSnapshot(snapshot, store.readEvents(snapshot.id()));
             if (!snapshot.status().isTerminal()) {
@@ -81,6 +80,19 @@ public class JobService {
 
     public int concurrency() {
         return concurrency;
+    }
+
+    /** Changes how many jobs run at once; queued jobs pick up the new limit immediately. */
+    public synchronized void setConcurrency(int limit) {
+        int n = Math.max(1, Math.min(16, limit));
+        if (n >= executor.getMaximumPoolSize()) {
+            executor.setMaximumPoolSize(n);
+            executor.setCorePoolSize(n);
+        } else {
+            executor.setCorePoolSize(n);
+            executor.setMaximumPoolSize(n);
+        }
+        concurrency = n;
     }
 
     public int runningCount() {

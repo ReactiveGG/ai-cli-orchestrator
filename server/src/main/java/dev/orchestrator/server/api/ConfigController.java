@@ -3,6 +3,7 @@ package dev.orchestrator.server.api;
 import dev.orchestrator.config.FlowConfig;
 import dev.orchestrator.server.config.OrchestrationService;
 import dev.orchestrator.server.config.OrchestratorProperties;
+import dev.orchestrator.server.config.RuntimeSettings;
 import dev.orchestrator.server.config.FlowConfigDto;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,16 +24,32 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {
-    public record Settings(String dataDir, String workspace, String routingFile, int concurrency,
-                           long moduleTimeoutSeconds, long idleWarningSeconds) {
+    /** Runtime settings plus read-only paths. */
+    public record Settings(
+            String dataDir, String routingFile, String settingsFile,
+            String workspace, int concurrency, long moduleTimeoutSeconds, long idleWarningSeconds,
+            java.util.Map<String, RuntimeSettings.ModuleSnapshot> modules,
+            RuntimeSettings.IsolationSnapshot isolation
+    ) {
+        static Settings of(OrchestratorProperties p, RuntimeSettings rs) {
+            RuntimeSettings.Snapshot s = rs.current();
+            return new Settings(p.dataDir().toString(), p.routingFile().toString(), rs.file().toString(),
+                    s.workspace(), s.concurrency(), s.moduleTimeoutSeconds(), s.idleWarningSeconds(), s.modules(), s.isolation());
+        }
+
+        RuntimeSettings.Snapshot toSnapshot() {
+            return new RuntimeSettings.Snapshot(workspace, concurrency, moduleTimeoutSeconds, idleWarningSeconds, modules, isolation);
+        }
     }
 
     private final OrchestrationService orchestration;
     private final OrchestratorProperties properties;
+    private final dev.orchestrator.server.job.JobService jobs;
 
-    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties) {
+    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties, dev.orchestrator.server.job.JobService jobs) {
         this.orchestration = orchestration;
         this.properties = properties;
+        this.jobs = jobs;
     }
 
     @GetMapping("/routing")
@@ -72,13 +89,15 @@ public class ConfigController {
 
     @GetMapping("/settings")
     public Settings settings() {
-        return new Settings(
-                properties.dataDir().toString(),
-                properties.workspaceOrCwd().toString(),
-                properties.routingFile().toString(),
-                properties.concurrency(),
-                properties.moduleTimeout().toSeconds(),
-                properties.idleWarning().toSeconds()
-        );
+        return Settings.of(properties, orchestration.settings());
+    }
+
+    /** Saves runtime settings to {@code <data-dir>/settings.yml} and applies them (new jobs use them). */
+    @PutMapping("/settings")
+    public Settings saveSettings(@RequestBody Settings body) {
+        orchestration.settings().update(body.toSnapshot());
+        orchestration.applySettings();
+        jobs.setConcurrency(orchestration.settings().current().concurrency());
+        return Settings.of(properties, orchestration.settings());
     }
 }

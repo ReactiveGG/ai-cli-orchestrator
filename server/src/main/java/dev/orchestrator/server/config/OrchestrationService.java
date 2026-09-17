@@ -8,7 +8,6 @@ import dev.orchestrator.domain.AiModule;
 import dev.orchestrator.isolation.GitWorktreeIsolation;
 import dev.orchestrator.module.CliModuleSettings;
 import dev.orchestrator.module.ModuleFactory;
-import dev.orchestrator.server.config.OrchestratorProperties.ModuleSettings;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
@@ -29,13 +28,20 @@ public class OrchestrationService {
     private static final List<String> MODULE_NAMES = List.of("codex", "claude");
 
     private final OrchestratorProperties properties;
+    private final RuntimeSettings settings;
     private final AtomicReference<ExecutionManager> manager = new AtomicReference<>();
 
     public OrchestrationService(OrchestratorProperties properties) throws IOException {
+        this(properties, new RuntimeSettings(properties));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OrchestrationService(OrchestratorProperties properties, RuntimeSettings settings) throws IOException {
         this.properties = properties;
+        this.settings = settings;
         Files.createDirectories(properties.jobsDir());
         reload(FlowConfig.loadOrDefault(properties.routingFile()));
-        log.info("Data dir: {}  workspace: {}", properties.dataDir(), properties.workspaceOrCwd());
+        log.info("Data dir: {}  workspace: {}", properties.dataDir(), settings.workspace());
         manager.get().modules().forEach((name, module) ->
                 log.info("Module {} -> {} ({})", name, module.description(), module.isAvailable() ? "available" : "missing"));
         manager.get().config().flows().values().forEach(flow -> log.info("Flow {}: {}", flow.name(), flow.describe()));
@@ -53,27 +59,35 @@ public class OrchestrationService {
         return manager.get().modules();
     }
 
+    public RuntimeSettings settings() {
+        return settings;
+    }
+
     public synchronized void reload(FlowConfig config) {
         config.validate();
         AiModule[] modules = MODULE_NAMES.stream().map(this::createModule).toArray(AiModule[]::new);
-        manager.set(new ExecutionManager(new PromptCompiler(), config, properties.moduleTimeout(), properties.idleWarning(), isolationSettings(), modules));
+        manager.set(new ExecutionManager(new PromptCompiler(), config, settings.moduleTimeout(), settings.idleWarning(), isolationSettings(), modules));
+    }
+
+    /** Rebuilds the manager after runtime settings changed (workspace, timeouts, modules, isolation). */
+    public synchronized void applySettings() {
+        reload(config());
     }
 
     /** Candidate worktrees live under {@code <data-dir>/worktrees}; patches under {@code <data-dir>/jobs/<id>/candidates}. */
     private IsolationSettings isolationSettings() {
-        OrchestratorProperties.Isolation iso = properties.isolation();
+        RuntimeSettings.IsolationSnapshot iso = settings.isolation();
         if (iso == null || !iso.enabled()) {
             return IsolationSettings.DISABLED;
         }
         return new IsolationSettings(
                 new GitWorktreeIsolation(properties.worktreesDir(), iso.linkDirs(), iso.exclude()),
-                properties.workspaceOrCwd(), properties.jobsDir(), iso.autoApply(), iso.keepWorktrees(), iso.maxPatchChars());
+                settings.workspace(), properties.jobsDir(), iso.autoApply(), iso.keepWorktrees(), iso.maxPatchChars());
     }
 
     private AiModule createModule(String name) {
-        ModuleSettings settings = properties.moduleSettings(name);
-        String command = settings.command() == null || settings.command().isBlank() ? name : settings.command();
-        return ModuleFactory.create(name, settings.mode(),
-                new CliModuleSettings(command, settings.extraArgs(), properties.workspaceOrCwd(), settings.model(), settings.maxBudgetUsd(), settings.allowedTools()));
+        RuntimeSettings.ModuleSnapshot m = settings.module(name);
+        return ModuleFactory.create(name, m.mode(),
+                new CliModuleSettings(m.command(), m.extraArgs(), settings.workspace(), m.model(), m.maxBudgetUsd(), m.allowedTools()));
     }
 }
