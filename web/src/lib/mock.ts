@@ -67,7 +67,7 @@ let seq = 0
 let idCounter = 1
 type Listener = (name: string, data: unknown) => void
 const listeners = new Map<string, Set<Listener>>()
-interface MockJob extends Job { events: JobEvent[]; ticks: number; stuck?: boolean }
+interface MockJob extends Job { events: JobEvent[]; ticks: number; stuck?: boolean; patches: Record<number, string> }
 const jobs: MockJob[] = []
 
 const modelsOf = (s: StageDto, flow: FlowDto): AgentDto[] => (s.models.length ? s.models : [ag(flow.defaultModule ?? 'claude')])
@@ -94,7 +94,9 @@ function planFor(flowName: string): PlanStep[] {
       const dup = seen.get(key) ?? 0
       seen.set(key, dup + 1)
       const id = `s${si + 1}/${key}${dup ? `#${dup}` : ''}`
-      steps.push({ id, label: `${stageLabel(stage)} (${describeAgent(a)})`, moduleName: m, role, stage: si + 1, dependsOn: prev })
+      const competing = stage.role === 'coder' && modelsOf(stage, flow).length > 1
+      const k = ids.length + 1
+      steps.push({ id, label: `${stageLabel(stage)} (${describeAgent(a)})${competing ? ` · 후보 ${k}` : ''}`, moduleName: m, role, stage: si + 1, candidate: competing ? k : 0, dependsOn: prev })
       ids.push(id)
     }
     prev = ids
@@ -150,7 +152,22 @@ function display(r: Parsed): string {
 }
 
 const zero = (): TokenUsage => ({ inputTokens: 0, outputTokens: 0, costUsd: 0 })
-const snapshot = (j: MockJob): Job => { const { events: _e, ticks: _t, stuck: _s, ...rest } = j; return { ...rest, eventCount: j.events.length } }
+const snapshot = (j: MockJob): Job => { const { events: _e, ticks: _t, stuck: _s, patches: _p, ...rest } = j; return { ...rest, eventCount: j.events.length } }
+const FAKE_PATCH = (k: number) => `diff --git a/greeting.py b/greeting.py\n--- a/greeting.py\n+++ b/greeting.py\n@@ -1,4 +1,${4 + k} @@\n def greet(name):\n+    if name is None or not str(name).strip():\n+        return "Hello, stranger!"  # candidate ${k}\n     return f"Hello, {name}!"\n`
+function addCandidate(job: MockJob, s: JobStep) {
+  const k = s.candidate
+  job.patches[k] = FAKE_PATCH(k)
+  job.candidates = [...job.candidates, { index: k, agent: `${s.module}/coder`, stepId: s.id, filesChanged: 1 + (k % 2), insertions: 2 + k, deletions: k - 1, stat: ` greeting.py | ${2 + k} ++-\n 1 file changed`, patchFile: `~/.ai-orchestrator/jobs/${job.id}/candidates/c${k}.patch`, empty: false, chosen: false, applied: false }].sort((a, b) => a.index - b.index)
+  log(job, 'SUMMARY', s.id, `후보 ${k} 변경 추출: ${1 + (k % 2)} files, +${2 + k} -${k - 1}`)
+}
+function decide(job: MockJob) {
+  if (!job.candidates.length) return
+  const chosen = job.candidates.length >= 2 ? 2 : 1
+  job.chosenCandidate = chosen; job.applied = true
+  job.decisionNote = `후보 ${chosen} 적용됨 (${job.candidates[chosen - 1].filesChanged} files, +${job.candidates[chosen - 1].insertions} -${job.candidates[chosen - 1].deletions})`
+  job.candidates = job.candidates.map((c) => ({ ...c, chosen: c.index === chosen, applied: c.index === chosen }))
+  log(job, 'SUMMARY', null, job.decisionNote)
+}
 const emit = (key: string, name: string, data: unknown) => listeners.get(key)?.forEach((l) => l(name, data))
 function log(job: MockJob, level: LogLevel, stepId: string | null, message: string, at = Date.now()) {
   const e: JobEvent = { seq: ++seq, at: new Date(at).toISOString(), jobId: job.id, level, stepId, message }
@@ -159,10 +176,11 @@ function log(job: MockJob, level: LogLevel, stepId: string | null, message: stri
 function publish(job: MockJob) { const s = snapshot(job); emit(job.id, 'job', s); emit('all', 'job', s) }
 function makeJob(r: Parsed, createdAt = Date.now()): MockJob {
   const flow = config.flows[r.flow]
-  const steps: JobStep[] = planFor(r.flow).map((s) => ({ id: s.id, label: s.label, module: s.moduleName, role: s.role, stage: s.stage, dependsOn: s.dependsOn, status: 'PENDING', startedAt: null, finishedAt: null, error: null }))
+  const steps: JobStep[] = planFor(r.flow).map((s) => ({ id: s.id, label: s.label, module: s.moduleName, role: s.role, stage: s.stage, candidate: s.candidate, dependsOn: s.dependsOn, status: 'PENDING', startedAt: null, finishedAt: null, error: null }))
   const job: MockJob = {
     id: `${createdAt}-${(idCounter++).toString(16).padStart(4, '0')}`, status: 'QUEUED', command: display(r), flow: r.flow, flowLabel: flow.label ?? r.flow, target: r.target, focus: r.focus, language: r.language,
     createdAt: new Date(createdAt).toISOString(), startedAt: null, finishedAt: null, lastOutputAt: null, steps, usage: zero(), usageByModule: {}, error: null, result: null, eventCount: 0, events: [], ticks: 0,
+    candidates: [], chosenCandidate: 0, applied: false, decisionNote: null, patches: {},
   }
   log(job, 'SUMMARY', null, `대기열에 추가됨: ${job.command}`, createdAt)
   return job
@@ -210,8 +228,8 @@ function tick() {
     job.ticks++
     for (const s of current) if (s.module && job.ticks <= 3) log(job, 'DETAIL', s.id, DETAIL[s.module]?.[job.ticks - 1] ?? '')
     if (job.ticks >= 4) {
-      for (const s of current) { s.status = 'DONE'; s.finishedAt = new Date().toISOString(); completeAgent(job, s) }
-      if (!job.steps.some((s) => s.status === 'PENDING')) log(job, 'SUMMARY', null, `완료: 에이전트 ${job.steps.length}개, 토큰 ${job.usage.inputTokens + job.usage.outputTokens}`)
+      for (const s of current) { s.status = 'DONE'; s.finishedAt = new Date().toISOString(); completeAgent(job, s); if (s.candidate) addCandidate(job, s) }
+      if (!job.steps.some((s) => s.status === 'PENDING')) { decide(job); log(job, 'SUMMARY', null, `완료: 에이전트 ${job.steps.length}개, 토큰 ${job.usage.inputTokens + job.usage.outputTokens}`) }
       publish(job)
     }
   }
@@ -228,8 +246,9 @@ function seed() {
     for (const s of j.steps) {
       if (s.stage !== lastStage) { t += 45000; lastStage = s.stage }
       s.status = 'DONE'; s.startedAt = new Date(t - 40000).toISOString(); s.finishedAt = new Date(t).toISOString()
-      if (s.module) { log(j, 'SUMMARY', s.id, `${s.module} 시작 (cli: ${s.module})`, t - 40000); DETAIL[s.module]?.forEach((l, i) => log(j, 'DETAIL', s.id, l, t - 38000 + i * 8000)); completeAgent(j, s, t) }
+      if (s.module) { log(j, 'SUMMARY', s.id, `${s.module} 시작 (cli: ${s.module})`, t - 40000); DETAIL[s.module]?.forEach((l, i) => log(j, 'DETAIL', s.id, l, t - 38000 + i * 8000)); completeAgent(j, s, t); if (s.candidate) addCandidate(j, s) }
     }
+    decide(j)
     j.status = 'SUCCEEDED'; j.finishedAt = new Date(t).toISOString(); log(j, 'SUMMARY', null, '성공', t)
     after?.(j); jobs.push(j)
   }
@@ -273,6 +292,8 @@ export const mockApi = {
   submit: (body: JobRequest): Promise<Job> => { const j = makeJob(parse(body)); jobs.push(j); publish(j); setTimeout(tick, 200); return delay(snapshot(j)) },
   submitBatch: (body: JobRequest[]): Promise<Job[]> => { const made = body.map(parse).map((p) => makeJob(p)); jobs.push(...made); made.forEach(publish); setTimeout(tick, 200); return delay(made.map(snapshot)) },
   preview: (body: JobRequest): Promise<PlanStep[]> => delay(planFor(parse(body).flow)),
+  applyCandidate: (id: string, candidate: number): Promise<Job> => { const j = find(id); const c = j.candidates.find((x) => x.index === candidate); if (!c) throw new Error(`후보 ${candidate}이(가) 없습니다`); j.chosenCandidate = candidate; j.applied = true; j.decisionNote = `후보 ${candidate} 수동 적용됨 (${c.filesChanged} files, +${c.insertions} -${c.deletions})`; j.candidates = j.candidates.map((x) => ({ ...x, chosen: x.index === candidate, applied: x.index === candidate })); log(j, 'SUMMARY', null, j.decisionNote); publish(j); return delay(snapshot(j)) },
+  candidatePatch: (id: string, candidate: number): Promise<string> => delay(find(id).patches[candidate] ?? ''),
   cancel: (id: string): Promise<Job> => { const j = find(id); if (j.status === 'QUEUED') { log(j, 'SUMMARY', null, '대기 중 취소됨'); finish(j, 'CANCELLED') } else if (j.status === 'RUNNING') { log(j, 'SUMMARY', null, '취소 요청됨, 실행 중인 프로세스를 종료합니다'); j.stuck = false; finish(j, 'CANCELLED') } return delay(snapshot(j)) },
   remove: (id: string): Promise<void> => { const i = jobs.findIndex((j) => j.id === id); if (i >= 0) jobs.splice(i, 1); return delay(undefined) },
   logs: (id: string, level: LogLevel, after = 0): Promise<JobEvent[]> => delay(find(id).events.filter((e) => e.level === level && e.seq > after)),

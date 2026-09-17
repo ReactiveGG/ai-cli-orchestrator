@@ -56,10 +56,8 @@ export default function App() {
             next[idx] = job
             return next
           })
-          if (job.status !== 'RUNNING' && job.status !== 'QUEUED') {
-            qc.invalidateQueries({ queryKey: ['dashboard'] })
-            notify(job)
-          }
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+          if (job.status !== 'RUNNING' && job.status !== 'QUEUED') notify(job)
         },
       },
       () => setLive(false),

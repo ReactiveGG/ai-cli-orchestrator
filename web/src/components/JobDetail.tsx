@@ -4,6 +4,7 @@ import { api, subscribe } from '../lib/api'
 import type { Job, JobEvent } from '../lib/types'
 import { FlowDiagram } from './FlowDiagram'
 import { LogView } from './LogView'
+import { CandidatePanel } from './CandidatePanel'
 import { StatusBadge } from './StatusBadge'
 import { formatCost, formatDuration, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
@@ -72,14 +73,15 @@ export function JobDetail({ jobId, onCancel }: { jobId: string; onCancel: (id: s
           />
         </div>
       </div>
+      <CandidatePanel job={current} />
       <div className="min-h-64 flex-1">
         <LogView events={events} jobId={current.id} />
       </div>
       {current.result && (
-        <details className="rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-          <summary className="cursor-pointer font-medium">최종 결과</summary>
-          <pre className="mono mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{current.result}</pre>
-        </details>
+        <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800">최종 결과<span className="text-xs font-normal text-slate-500">마지막 단계(검증자) 출력</span></div>
+          <pre className="mono max-h-[28rem] overflow-auto whitespace-pre-wrap p-3 text-xs leading-5">{current.result}</pre>
+        </div>
       )}
     </div>
   )

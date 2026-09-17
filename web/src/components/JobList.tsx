@@ -29,6 +29,7 @@ export function JobList({ jobs, selectedId, onSelect, onCancel, onDelete }: {
             <div className="flex items-center gap-2">
               <StatusBadge status={job.status} />
               <span className="mono truncate text-sm">{job.command}</span>
+              {job.candidates?.length > 0 && <span className={`shrink-0 rounded-full px-1.5 text-[10px] ${job.applied ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200'}`}>{job.applied ? `후보 ${job.chosenCandidate} 적용` : `후보 ${job.candidates.length}개`}</span>}
               <span className="ml-auto shrink-0 text-xs text-slate-500 tabular-nums">
                 {formatTokens(job.usage.inputTokens + job.usage.outputTokens)} tok · {formatDuration(job.startedAt, job.finishedAt, now)}
               </span>

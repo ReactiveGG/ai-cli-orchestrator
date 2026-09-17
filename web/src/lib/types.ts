@@ -16,13 +16,30 @@ export interface JobStep {
   label: string
   module: string | null
   role: string | null
-  /** 1-based stage index for agent steps, 0 for compile/route/aggregate */
+  /** 1-based stage index */
   stage: number
+  /** 1-based competing-candidate number for isolated coders, 0 otherwise */
+  candidate: number
   dependsOn: string[]
   status: StepStatus
   startedAt: string | null
   finishedAt: string | null
   error: string | null
+}
+
+/** One competing coder's result (competition mode: presets with 2+ coders). */
+export interface JobCandidate {
+  index: number
+  agent: string
+  stepId: string
+  filesChanged: number
+  insertions: number
+  deletions: number
+  stat: string
+  patchFile: string | null
+  empty: boolean
+  chosen: boolean
+  applied: boolean
 }
 
 export interface Job {
@@ -44,6 +61,10 @@ export interface Job {
   error: string | null
   result: string | null
   eventCount: number
+  candidates: JobCandidate[]
+  chosenCandidate: number
+  applied: boolean
+  decisionNote: string | null
 }
 
 export interface JobEvent {
@@ -206,5 +227,6 @@ export interface PlanStep {
   moduleName: string | null
   role: string | null
   stage: number
+  candidate: number
   dependsOn: string[]
 }

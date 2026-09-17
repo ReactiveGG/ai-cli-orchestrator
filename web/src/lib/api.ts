@@ -36,6 +36,12 @@ const realApi = {
   submitBatch: (body: JobRequest[]) => request<Job[]>('/api/jobs/batch', { method: 'POST', body: JSON.stringify(body) }),
   preview: (body: JobRequest) => request<PlanStep[]>('/api/jobs/preview', { method: 'POST', body: JSON.stringify(body) }),
   cancel: (id: string) => request<Job>(`/api/jobs/${id}/cancel`, { method: 'POST' }),
+  applyCandidate: (id: string, candidate: number) => request<Job>(`/api/jobs/${id}/apply?candidate=${candidate}`, { method: 'POST' }),
+  candidatePatch: async (id: string, candidate: number) => {
+    const res = await fetch(`/api/jobs/${id}/candidates/${candidate}/patch`)
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+    return res.text()
+  },
   remove: (id: string) => request<void>(`/api/jobs/${id}`, { method: 'DELETE' }),
   logs: (id: string, level: LogLevel, after = 0) => request<JobEvent[]>(`/api/jobs/${id}/logs?level=${level}&after=${after}`),
   routing: () => request<FlowConfig>('/api/config/routing'),

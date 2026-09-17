@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import { RefreshCw } from 'lucide-react'
+import { TokenChart } from '../components/TokenChart'
 import { api } from '../lib/api'
 import type { Job } from '../lib/types'
 import { StatTile } from '../components/StatTile'
-import { formatCost, formatTokens } from '../lib/format'
+import { formatCost, formatTime, formatTokens } from '../lib/format'
 
 export function DashboardPage({ jobs }: { jobs: Job[] }) {
-  const dash = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 15_000 })
+  const dash = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 10_000 })
   const d = dash.data
 
   const running = jobs.filter((j) => j.status === 'RUNNING').length
@@ -50,20 +51,14 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
         hint={`대기 ${queued} · 실패 ${failed} · 동시 실행 상한 ${d?.concurrency ?? '-'}`}
       />
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">최근 7일 토큰</div>
-        <div className="h-40">
-          {d && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={d.usage.last7Days} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(5)} fontSize={11} />
-                <YAxis fontSize={11} tickFormatter={(v: number) => formatTokens(v)} />
-                <Tooltip formatter={(v) => formatTokens(Number(v))} labelFormatter={(l) => String(l)} />
-                <Bar dataKey="inputTokens" name="입력" stackId="a" fill="#0ea5e9" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="outputTokens" name="출력" stackId="a" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+        <div className="mb-1 flex items-center gap-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">최근 7일 토큰</div>
+          <span className="text-xs text-slate-400">{d ? `갱신 ${formatTime(d.generatedAt)} · 10초마다 자동` : '불러오는 중…'}</span>
+          <button onClick={() => dash.refetch()} disabled={dash.isFetching} title="새로고침" className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            <RefreshCw size={12} className={dash.isFetching ? 'animate-spin' : ''} /> 새로고침
+          </button>
         </div>
+        <div className="h-52">{d && <TokenChart data={d.usage.last7Days} />}</div>
       </div>
     </div>
   )
