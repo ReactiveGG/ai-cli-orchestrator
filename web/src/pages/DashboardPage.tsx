@@ -105,7 +105,7 @@ function SubscriptionTile({ info, loading, probing, note }: { info: RateLimitInf
             <Meter label="현재 세션 (5시간)" value={info.fiveHourUtilization} resetsAt={info.fiveHourResetsAt} now={now} />
             <Meter label="이번 주 (7일)" value={info.sevenDayUtilization} resetsAt={info.sevenDayResetsAt} now={now} />
             {info.usingOverage && <div className="mt-1 text-amber-700 dark:text-amber-300">플랜 한도를 넘어 추가 크레딧을 쓰는 중</div>}
-            <div className="mt-1 text-slate-400">마지막 Claude 호출 기준 · {ageMin < 1 ? '방금' : `${ageMin}분 전`}{info.status && info.status !== 'allowed' ? ` · CLI 상태 ${info.status}` : ''}. 모델별 주간 한도는 CLI가 보고하지 않습니다.</div>
+            <div className="mt-1 text-slate-400">마지막 Claude 호출 기준 · {ageMin < 1 ? '방금' : `${ageMin}분 전`}{info.status && info.status !== 'allowed' ? ` · CLI 상태 ${info.status}` : ''}</div>
             {note && <div className="mt-1 text-rose-600 dark:text-rose-300">{note}</div>}
           </>}
     />
