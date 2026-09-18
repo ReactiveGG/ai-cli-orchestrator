@@ -101,13 +101,28 @@ public class DesktopLauncher {
             menu.add(open);
             menu.addSeparator();
             menu.add(quit);
-            TrayIcon icon = new TrayIcon(trayImage(), "AI CLI Orchestrator · " + url, menu);
+            TrayIcon icon = new TrayIcon(loadTrayImage(), "AI CLI Orchestrator · " + url, menu);
             icon.setImageAutoSize(true);
             icon.addActionListener(e -> openBrowser(url));   // double-click
             SystemTray.getSystemTray().add(icon);
         } catch (RuntimeException | LinkageError | java.awt.AWTException e) {
             log.warn("System tray icon not installed: {}", e.toString());
         }
+    }
+
+    /** The packaged icon (tray-icon.png, same artwork as the app icon); falls back to a drawn one. */
+    static java.awt.Image loadTrayImage() {
+        try (java.io.InputStream in = DesktopLauncher.class.getResourceAsStream("/tray-icon.png")) {
+            if (in != null) {
+                BufferedImage img = javax.imageio.ImageIO.read(in);
+                if (img != null) {
+                    return img;
+                }
+            }
+        } catch (IOException | RuntimeException e) {
+            log.debug("tray-icon.png not usable: {}", e.toString());
+        }
+        return trayImage();
     }
 
     /** A drawn icon so the package needs no image asset: rounded blue square with "AI". */

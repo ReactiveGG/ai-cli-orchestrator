@@ -93,6 +93,7 @@ val jpackage by tasks.registering(Exec::class) {
         "--java-options", "-Dfile.encoding=UTF-8",
         "--java-options", "-Dlogging.file.name=\${user.home}/.ai-orchestrator/server.log",
         "--java-options", "-Xmx512m",
+        "--icon", layout.projectDirectory.file(if (OperatingSystem.current().isWindows) "src/main/jpackage/icon.ico" else "src/main/jpackage/icon.png").asFile.path,
     )
     if (OperatingSystem.current().isWindows) {
         if (type != "app-image") {
