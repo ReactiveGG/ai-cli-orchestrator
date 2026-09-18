@@ -32,13 +32,16 @@ public class CatalogController {
             List<CommandCatalog.OptionSpec> options,
             List<ModuleInfo> modules,
             List<RoleInfo> roles
-    ) {
+    ,
+            List<dev.orchestrator.server.config.SlashCommandCatalog.SlashCommand> commands) {
     }
 
     private final OrchestrationService orchestration;
+    private final dev.orchestrator.server.config.SlashCommandCatalog slashCommands;
 
-    public CatalogController(OrchestrationService orchestration) {
+    public CatalogController(OrchestrationService orchestration, dev.orchestrator.server.config.SlashCommandCatalog slashCommands) {
         this.orchestration = orchestration;
+        this.slashCommands = slashCommands;
     }
 
     @GetMapping("/api/catalog")
@@ -50,7 +53,7 @@ public class CatalogController {
         List<RoleInfo> roles = orchestration.config().roles().values().stream()
                 .map(role -> new RoleInfo(role.name(), role.labelKo(), role.instructions()))
                 .toList();
-        return new Catalog(flows, CommandCatalog.OPTIONS, modules, roles);
+        return new Catalog(flows, CommandCatalog.OPTIONS, modules, roles, slashCommands.list());
     }
 
     private FlowInfo describe(FlowDefinition flow) {

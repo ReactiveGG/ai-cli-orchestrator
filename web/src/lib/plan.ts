@@ -4,10 +4,10 @@ import type { FlowStep } from '../components/FlowDiagram'
 /** Agents per stage, e.g. 1-1-2-1. */
 export const signatureOf = (f: FlowDto) => f.stages.map((s) => Math.max(1, s.models.length)).join('-')
 
-export const agent = (module: string): AgentDto => ({ module, model: null, effort: null })
+export const agent = (module: string): AgentDto => ({ module, model: null, effort: null, command: null })
 
 /** {@code claude}, {@code claude opus}, {@code claude opus/high}. */
-export const describeAgent = (a: AgentDto) => a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module
+export const describeAgent = (a: AgentDto) => (a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module) + (a.command ? ` ${a.command}` : '')
 
 /**
  * Client-side copy of ExecutionManager.plan(): one node per agent, every agent

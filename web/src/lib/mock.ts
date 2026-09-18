@@ -9,6 +9,14 @@ const OPTIONS: Catalog['options'] = [
   { flag: '--focus', type: 'string', repeatable: true, defaultValue: null, labelKo: '집중 영역', descriptionKo: '프롬프트에 강조할 관점. 여러 번 지정 가능.' },
   { flag: '--language', type: 'string', repeatable: false, defaultValue: 'ko', labelKo: '응답 언어', descriptionKo: 'AI 응답 언어 코드. 기본값 ko.' },
 ]
+const SLASH_COMMANDS: Catalog['commands'] = [
+  { name: '/plan', kind: 'builtin', description: '계획 전용 권한 모드. 코더에 주면 계획(plan 모드) → 같은 세션 이어받아 구현, 두 번 실행', argument: null, scope: [], source: 'orchestrator' },
+  { name: '/resume', kind: 'builtin', description: '그 세션을 이어받아 실행. 세션 id는 요약 로그에 남는다', argument: '<세션 id>', scope: [], source: 'orchestrator' },
+  { name: '/continue', kind: 'builtin', description: '이 작업 공간의 가장 최근 세션을 이어받아 실행', argument: null, scope: [], source: 'orchestrator' },
+  { name: '/review', kind: 'project', description: '프로젝트 리뷰 체크리스트로 변경 사항을 검토한다', argument: '<경로>', scope: [], source: 'C:\\dev\\my-service\\.claude\\commands\\review.md' },
+  { name: '/spec', kind: 'skill', description: '요구사항을 스펙 문서로 정리한다', argument: null, scope: [], source: 'C:\\dev\\my-service\\.claude\\skills\\spec\\SKILL.md' },
+]
+
 const MODULES: StatusReport['modules'] = [
   { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli', loggedIn: true, authMethod: 'claude.ai' },
   { name: 'codex', description: 'stub', available: false, version: null, mode: 'stub', loggedIn: null, authMethod: null },
@@ -39,11 +47,11 @@ const DETAIL: Record<string, string[]> = {
 const CONCURRENCY = 2
 const KEY = 'orch-mock-flows'
 
-const ag = (module: string, model: string | null = null, effort: string | null = null): AgentDto => ({ module, model, effort })
+const ag = (module: string, model: string | null = null, effort: string | null = null, command: string | null = null): AgentDto => ({ module, model, effort, command })
 const st = (role: string, models: AgentDto[] = []): StageDto => ({ name: null, role, models })
 const PIPELINE = ['planner', 'coder', 'reviewer', 'verifier']
 const preset = (label: string, module: string, counts: number[]): FlowDto => ({ label, task: 'custom', defaultModule: module, stages: PIPELINE.map((r, i) => st(r, Array.from({ length: counts[i] ?? 1 }, () => ag(module)))) })
-const describeAgent = (a: AgentDto) => a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module
+const describeAgent = (a: AgentDto) => (a.model || a.effort ? `${a.module} ${a.model ?? '기본'}${a.effort ? '/' + a.effort : ''}` : a.module) + (a.command ? ` ${a.command}` : '')
 function singleConfig(module: string): FlowConfig {
   return {
     flows: {
@@ -295,7 +303,7 @@ export const mockApi = {
     return delay({ usage: { today: sum(all.filter((j) => new Date(j.createdAt).toDateString() === today)), total: sum(all), byModule, last7Days }, status: status(), jobCounts, concurrency: CONCURRENCY, running: jobCounts.RUNNING, recentJobs: all.slice(0, 10), generatedAt: new Date().toISOString(), subscription: { status: 'allowed', fiveHourUtilization: 0.37, fiveHourResetsAt: new Date(Date.now() + 2.4 * 3600e3).toISOString(), sevenDayUtilization: 0.62, sevenDayResetsAt: new Date(Date.now() + 3 * 86400e3).toISOString(), rateLimitType: null, observedAt: new Date(Date.now() - 6 * 60e3).toISOString() } })
   },
   status: (): Promise<StatusReport> => delay(status()),
-  catalog: (): Promise<Catalog> => delay({ flows: Object.entries(config.flows).map(([n, f]) => flowInfo(n, f)), options: OPTIONS, modules: MODULES.map((m) => ({ name: m.name, description: m.description, available: m.available })), roles: Object.entries(config.roles).map(([name, r]) => ({ name, label: r.label, instructions: r.instructions })) }),
+  catalog: (): Promise<Catalog> => delay({ flows: Object.entries(config.flows).map(([n, f]) => flowInfo(n, f)), options: OPTIONS, modules: MODULES.map((m) => ({ name: m.name, description: m.description, available: m.available })), roles: Object.entries(config.roles).map(([name, r]) => ({ name, label: r.label, instructions: r.instructions })), commands: SLASH_COMMANDS }),
   jobs: (): Promise<Job[]> => delay(sorted()),
   job: (id: string): Promise<Job> => delay(snapshot(find(id))),
   submit: (body: JobRequest): Promise<Job> => { const j = makeJob(parse(body)); jobs.push(j); publish(j); setTimeout(tick, 200); return delay(snapshot(j)) },
@@ -313,7 +321,7 @@ export const mockApi = {
     let y = 'flows:\n'
     for (const [n, f] of Object.entries(config.flows)) {
       y += `  ${n}:\n    label: ${f.label ?? n}\n` + (f.defaultModule ? `    defaultModule: ${f.defaultModule}\n` : '') + '    stages:\n'
-      for (const s of f.stages) y += `      - role: ${s.role}\n` + (s.models.length ? `        models: [${s.models.map((a) => a.model || a.effort ? `${a.module}${a.model ? ':' + a.model : ''}${a.effort ? '/' + a.effort : ''}` : a.module).join(', ')}]\n` : '')
+      for (const s of f.stages) y += `      - role: ${s.role}\n` + (s.models.length ? `        models: [${s.models.map((a) => (a.model || a.effort ? `${a.module}${a.model ? ':' + a.model : ''}${a.effort ? '/' + a.effort : ''}` : a.module) + (a.command ? ' ' + a.command : '')).join(', ')}]\n` : '')
     }
     y += Object.keys(config.fallback).length ? 'fallback:\n' + Object.entries(config.fallback).map(([k, v]) => `  ${k}: ${v}`).join('\n') + '\n' : 'fallback: {}\n'
     return y

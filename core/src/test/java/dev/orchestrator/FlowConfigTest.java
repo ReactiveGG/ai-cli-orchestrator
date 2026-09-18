@@ -15,6 +15,48 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FlowConfigTest {
+    @Test
+    void agentSlashCommandParsesFromShorthandAndMap() {
+        dev.orchestrator.domain.AgentSpec a = dev.orchestrator.domain.AgentSpec.parse("claude:opus/high /plan", "claude", r -> false);
+        assertEquals("opus", a.model());
+        assertEquals("high", a.effort());
+        assertEquals("/plan", a.command());
+        assertTrue(a.options().planMode());
+        assertEquals("claude opus/high /plan", a.describeModel());
+        assertEquals("/review src", dev.orchestrator.domain.AgentSpec.parse("claude /review src", "claude", r -> false).command());
+        assertThrows(IllegalArgumentException.class, () -> new dev.orchestrator.domain.AgentSpec(null, "claude", null, null, "plan"), "must start with /");
+        assertThrows(IllegalArgumentException.class, () -> new dev.orchestrator.domain.AgentSpec(null, "claude", null, null, "/a\nb"), "one line only");
+
+        FlowConfig config = FlowConfig.fromYaml(new java.io.ByteArrayInputStream("""
+                flows:
+                  spec:
+                    stages:
+                      - role: planner
+                        models: [{module: claude, model: sonnet, command: /plan}]
+                      - role: coder
+                        models: [claude]
+                      - role: reviewer
+                        models: ["claude /review"]
+                      - role: verifier
+                        models: [claude]
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        config.validate();
+        assertEquals("/plan", config.flow("spec").stages().get(0).agents().get(0).command());
+        assertEquals("/review", config.flow("spec").stages().get(2).agents().get(0).command());
+
+        FlowConfig bad = FlowConfig.fromYaml(new java.io.ByteArrayInputStream("""
+                flows:
+                  bad:
+                    stages:
+                      - role: planner
+                        models: [claude]
+                      - role: coder
+                        models: ["claude /plan"]
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        bad.validate();   // a coder with /plan is the two-phase plan-then-implement run, so it is allowed
+        assertTrue(bad.flow("bad").stages().get(1).agents().get(0).options().planMode());
+    }
+
     private static FlowConfig parse(String yaml) {
         return FlowConfig.fromYaml(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     }

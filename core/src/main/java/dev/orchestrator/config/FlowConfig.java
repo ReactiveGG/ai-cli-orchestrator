@@ -261,10 +261,11 @@ public final class FlowConfig {
             String module = map.get("module") == null ? defaultModule : String.valueOf(map.get("module"));
             return new AgentSpec(role, module,
                     map.get("model") == null ? null : String.valueOf(map.get("model")),
-                    map.get("effort") == null ? null : String.valueOf(map.get("effort")));
+                    map.get("effort") == null ? null : String.valueOf(map.get("effort")),
+                    map.get("command") == null ? null : String.valueOf(map.get("command")));
         }
         AgentSpec parsed = AgentSpec.parse(String.valueOf(node), defaultModule, r -> false);
-        return new AgentSpec(role, parsed.module(), parsed.model(), parsed.effort());
+        return new AgentSpec(role, parsed.module(), parsed.model(), parsed.effort(), parsed.command());
     }
 
     private static AgentSpec parseAgent(Object node, String defaultModule, java.util.function.Predicate<String> isRole) {
@@ -273,7 +274,8 @@ public final class FlowConfig {
             String module = map.get("module") == null ? defaultModule : String.valueOf(map.get("module"));
             return new AgentSpec(role, module,
                     map.get("model") == null ? null : String.valueOf(map.get("model")),
-                    map.get("effort") == null ? null : String.valueOf(map.get("effort")));
+                    map.get("effort") == null ? null : String.valueOf(map.get("effort")),
+                    map.get("command") == null ? null : String.valueOf(map.get("command")));
         }
         return AgentSpec.parse(String.valueOf(node), defaultModule, isRole);
     }
