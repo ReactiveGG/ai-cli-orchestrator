@@ -50,6 +50,7 @@ public class JobService {
     private final java.util.concurrent.ThreadPoolExecutor executor;
     private final Map<String, Job> jobs = new ConcurrentHashMap<>();
     private final OrchestratorProperties.Retention retention;
+    private volatile java.util.function.Consumer<dev.orchestrator.domain.RateLimitInfo> rateLimitListener = info -> { };
     private final Map<String, Future<?>> futures = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
     private volatile int concurrency;
@@ -126,6 +127,11 @@ public class JobService {
             bus.publishJobs(list());
         }
         return removed;
+    }
+
+    /** Receives every subscription-usage report the CLIs emit (see SubscriptionUsage). */
+    public void setRateLimitListener(java.util.function.Consumer<dev.orchestrator.domain.RateLimitInfo> listener) {
+        this.rateLimitListener = listener == null ? info -> { } : listener;
     }
 
     public int concurrency() {
@@ -438,6 +444,11 @@ public class JobService {
         @Override
         public void onSummary(ExecutionStep step, String line) {
             emit(job, JobEventLevel.SUMMARY, step.isSystem() ? null : step.id(), line);
+        }
+
+        @Override
+        public void onRateLimit(ExecutionStep step, dev.orchestrator.domain.RateLimitInfo info) {
+            rateLimitListener.accept(info);
         }
 
         @Override

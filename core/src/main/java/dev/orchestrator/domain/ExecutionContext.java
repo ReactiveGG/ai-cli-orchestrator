@@ -22,6 +22,10 @@ public interface ExecutionContext {
     Duration idleWarning();
 
     /** Model/effort chosen for this agent in the preset. */
+    /** Subscription usage windows the CLI reported during this run (dashboard material). */
+    default void rateLimit(RateLimitInfo info) {
+    }
+
     default AgentOptions options() {
         return AgentOptions.NONE;
     }

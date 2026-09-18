@@ -26,6 +26,9 @@ public interface ExecutionObserver {
     default void onCandidate(ExecutionStep step, dev.orchestrator.isolation.CandidatePatch patch, ExecutionResult result) {
     }
 
+    default void onRateLimit(ExecutionStep step, dev.orchestrator.domain.RateLimitInfo info) {
+    }
+
     default void onSummary(ExecutionStep step, String line) {
     }
 
