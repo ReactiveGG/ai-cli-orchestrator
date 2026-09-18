@@ -187,11 +187,22 @@ export interface FlowInfo {
   defaultFocus: string[]
 }
 
+/** A slash command an agent chip can start with, and what it does. */
+export interface SlashCommand {
+  name: string
+  kind: 'builtin' | 'project' | 'user' | 'skill'
+  description: string
+  argument: string | null
+  scope: string[]
+  source: string
+}
+
 export interface Catalog {
   flows: FlowInfo[]
   options: OptionSpec[]
   modules: ModuleInfo[]
   roles: RoleInfo[]
+  commands: SlashCommand[]
 }
 
 /** One agent of a stage: tool + optional model variant (fable/opus/sonnet…) + optional effort. */
@@ -199,6 +210,8 @@ export interface AgentDto {
   module: string
   model: string | null
   effort: string | null
+  /** slash command: `/plan` → CLI plan permission mode, `/name args` → first line of the prompt (project command / skill) */
+  command: string | null
 }
 
 /** Editable config (GET/PUT /api/config/routing). A stage is one role run by 1+ agents in parallel. */

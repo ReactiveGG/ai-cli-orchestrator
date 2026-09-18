@@ -2,6 +2,7 @@ package dev.orchestrator.module;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.orchestrator.domain.AgentOptions;
+import dev.orchestrator.domain.ExecutionResult;
 import dev.orchestrator.domain.CompiledPrompt;
 import dev.orchestrator.domain.ExecutionContext;
 import dev.orchestrator.domain.ExecutionRequest;
@@ -43,7 +44,19 @@ public final class ClaudeCliModule extends CliAiModule {
         List<String> argv = new ArrayList<>(List.of(
                 settings.command(), "-p", "--output-format", "stream-json", "--verbose"
         ));
-        if (prompt.editsFiles()) {
+        String resume = options.resumeSession();
+        if (resume != null) {
+            if (resume.isEmpty()) {
+                argv.add("--continue");           // /continue or bare /resume: most recent session in this workspace
+            } else {
+                argv.add("--resume");             // /resume <session-id>
+                argv.add(resume);
+            }
+        }
+        if (options.planMode()) {
+            argv.add("--permission-mode");   // like /plan in the interactive CLI: read and plan, never edit
+            argv.add("plan");
+        } else if (prompt.editsFiles()) {
             argv.add("--permission-mode");
             argv.add("acceptEdits");
         }
@@ -80,9 +93,11 @@ public final class ClaudeCliModule extends CliAiModule {
         switch (type) {
             case "system" -> {
                 if ("init".equals(event.path("subtype").asText(""))) {
+                    sessionId = event.hasNonNull("session_id") ? event.path("session_id").asText() : sessionId;
                     context.summary("claude " + event.path("claude_code_version").asText("?")
                             + " · 모델 " + event.path("model").asText("?")
                             + " · 권한 " + event.path("permissionMode").asText("default")
+                            + (sessionId == null ? "" : " · 세션 " + sessionId)
                             + " · cwd " + event.path("cwd").asText("?"));
                 }
             }
@@ -136,6 +151,52 @@ public final class ClaudeCliModule extends CliAiModule {
     }
 
     private TokenUsage pendingUsage = TokenUsage.ZERO;
+    /** {@code session_id} of the last run (from the init event); what {@code /resume <id>} needs. */
+    private volatile String sessionId;
+
+    public String lastSessionId() {
+        return sessionId;
+    }
+
+    /**
+     * A coder with {@code /plan} gets the interactive flow in two runs, because non-interactive plan mode
+     * has nobody to approve the plan: first plan mode (read-only), then the same session resumed with
+     * edit permission and told to carry the plan out. Other agents run once as configured.
+     */
+    @Override
+    public ExecutionResult execute(CompiledPrompt prompt, ExecutionRequest request, ExecutionContext context) {
+        AgentOptions options = context.options();
+        if (!(options.planMode() && prompt.editsFiles())) {
+            return super.execute(prompt, request, context);
+        }
+        context.summary("1/2 계획: /plan (permission plan) — 읽기만 하고 계획을 세운다");
+        sessionId = null;
+        ExecutionResult plan = super.execute(prompt, request, context);
+        String id = sessionId;
+        if (id == null || id.isBlank()) {
+            throw new dev.orchestrator.domain.ModuleExecutionException(dev.orchestrator.domain.ModuleExecutionException.Kind.FAILED, name(),
+                    name() + ": 계획 세션 id를 받지 못해 이어서 구현할 수 없습니다 (init 이벤트에 session_id 없음)");
+        }
+        context.summary("2/2 구현: 세션 " + id + " 이어받아 acceptEdits로 계획을 실행한다");
+        AgentOptions phase2 = new AgentOptions(options.model(), options.effort(), "/resume " + id);
+        ExecutionContext resumed = new ExecutionContext() {
+            @Override public void detail(String line) { context.detail(line); }
+            @Override public void summary(String line) { context.summary(line); }
+            @Override public boolean isCancelled() { return context.isCancelled(); }
+            @Override public java.time.Duration timeout() { return context.timeout(); }
+            @Override public java.time.Duration idleWarning() { return context.idleWarning(); }
+            @Override public AgentOptions options() { return phase2; }
+            @Override public java.nio.file.Path workingDirectory() { return context.workingDirectory(); }
+            @Override public void rateLimit(dev.orchestrator.domain.RateLimitInfo info) { context.rateLimit(info); }
+        };
+        CompiledPrompt go = new CompiledPrompt(prompt.taskType(), prompt.target(), prompt.focus(), prompt.responseLanguage(),
+                "방금 세운 계획을 그대로 구현하라. 계획에서 벗어나지 말고, 허용된 테스트를 실행해 통과시킨 뒤 "
+                        + "'변경 파일 / 실행한 테스트 / 계획과 달라진 점 / 남은 일' 형식으로만 요약하라.",
+                prompt.role(), true);
+        ExecutionResult impl = super.execute(go, request, resumed);
+        String content = "## 계획 (plan 모드)\n" + plan.content().strip() + "\n\n## 구현\n" + impl.content().strip();
+        return new ExecutionResult(name(), prompt.taskType(), content, plan.usage().plus(impl.usage()));
+    }
 
     private static String describeToolInput(JsonNode input) {
         if (input == null || input.isMissingNode()) {

@@ -147,7 +147,19 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
                     onChange={(mi, patch) => setModels(si, (ms) => { ms[mi] = { ...ms[mi], ...patch }; return ms })} last={si === preset.stages.length - 1} />
                 ))}
               </div>
-              <p className="mt-2 text-xs text-slate-500">단계는 고정입니다. 칸에 모델을 더 놓을수록 그 단계가 병렬로 돌고, 다음 단계는 결과를 전부 받습니다. 칩마다 사용 모델(fable/opus/sonnet…)과 에포트를 정할 수 있고, 비우면 CLI 기본값입니다.</p>
+              <datalist id="slash-commands">
+                {(catalog.data?.commands ?? []).map((c) => <option key={c.name} value={c.argument ? `${c.name} ` : c.name}>{c.description}</option>)}
+              </datalist>
+              <details className="mt-2 text-xs text-slate-500">
+                <summary className="cursor-pointer">쓸 수 있는 슬래시 명령 {catalog.data?.commands.length ?? 0}개 (칩의 /명령 칸에 입력)</summary>
+                <ul className="mt-1 space-y-0.5">
+                  {(catalog.data?.commands ?? []).map((c) => (
+                    <li key={c.name} className="flex flex-wrap gap-x-2"><span className="mono text-slate-700 dark:text-slate-200">{c.name}{c.argument ? ` ${c.argument}` : ''}</span><span className="rounded bg-slate-100 px-1 text-[10px] dark:bg-slate-800">{{ builtin: '내장', project: '프로젝트 명령', user: '내 명령', skill: '스킬' }[c.kind]}</span><span className="min-w-0">{c.description}</span></li>
+                  ))}
+                  {(catalog.data?.commands.length ?? 0) <= 3 && <li className="text-slate-400">작업 공간의 <span className="mono">.claude/commands/*.md</span>나 <span className="mono">.claude/skills/*/SKILL.md</span>를 만들면 여기에 나타납니다.</li>}
+                </ul>
+              </details>
+              <p className="mt-2 text-xs text-slate-500">단계는 고정입니다. 칸에 모델을 더 놓을수록 그 단계가 병렬로 돌고, 다음 단계는 결과를 전부 받습니다. 칩마다 사용 모델(fable/opus/sonnet…)과 에포트, 슬래시 명령을 정할 수 있고, 비우면 CLI 기본값입니다. `/plan`은 대화형의 /plan처럼 계획 전용 모드로 돌고, 코더에 주면 계획(plan 모드) → 같은 세션 이어받아 구현(acceptEdits) 두 번으로 실행합니다. `/resume 세션id`·`/continue`는 그 세션을 이어받고(세션 id는 요약 로그에 남음), `/review` 같은 이름은 프롬프트 첫 줄에 들어가 작업 공간의 `.claude/commands`·스킬을 실행합니다.</p>
 
               <div className="mt-4">
                 <div className="mb-1 text-xs text-slate-500">실행 흐름 미리보기</div>
@@ -256,6 +268,9 @@ function ModelChip({ id, agent: a, onRemove, onChange }: { id: string; agent: Ag
           <option value="">에포트: 기본</option>
           {EFFORTS.map((e) => <option key={e} value={e}>{e}</option>)}
         </select>
+      </div>
+      <div className="mt-1" onPointerDown={stop}>
+        <input list="slash-commands" value={a.command ?? ''} onChange={(e) => onChange({ command: e.target.value || null })} placeholder="/명령 (예: /plan, /review)" title="슬래시 명령: /plan = 계획 전용 모드(코더는 계획→이어서 구현 2회), /resume 세션id·/continue = 세션 이어받기, 그 밖의 /이름 = 프로젝트 명령·스킬 실행" className="mono w-full rounded border border-slate-300 bg-white px-1 text-[11px] dark:border-slate-700 dark:bg-slate-900" />
       </div>
     </div>
   )

@@ -11,7 +11,7 @@ const roles: FlowConfig['roles'] = {
 const cfg: FlowConfig = { flows: {}, roles, fallback: {} }
 const preset = (counts: number[], module = 'claude'): FlowDto => ({
   label: 'p', task: 'custom', defaultModule: module,
-  stages: ['planner', 'coder', 'reviewer', 'verifier'].map((role, i) => ({ name: null, role, models: Array.from({ length: counts[i] }, () => ({ module, model: null, effort: null })) })),
+  stages: ['planner', 'coder', 'reviewer', 'verifier'].map((role, i) => ({ name: null, role, models: Array.from({ length: counts[i] }, () => ({ module, model: null, effort: null, command: null })) })),
 })
 
 describe('signatureOf', () => {
@@ -23,9 +23,10 @@ describe('signatureOf', () => {
 
 describe('describeAgent', () => {
   it('shows module, then model and effort when set', () => {
-    expect(describeAgent({ module: 'claude', model: null, effort: null })).toBe('claude')
-    expect(describeAgent({ module: 'claude', model: 'opus', effort: null })).toBe('claude opus')
-    expect(describeAgent({ module: 'claude', model: null, effort: 'high' })).toBe('claude 기본/high')
+    expect(describeAgent({ module: 'claude', model: null, effort: null, command: null })).toBe('claude')
+    expect(describeAgent({ module: 'claude', model: 'sonnet', effort: null, command: '/plan' })).toBe('claude sonnet /plan')
+    expect(describeAgent({ module: 'claude', model: 'opus', effort: null, command: null })).toBe('claude opus')
+    expect(describeAgent({ module: 'claude', model: null, effort: 'high', command: null })).toBe('claude 기본/high')
   })
 })
 

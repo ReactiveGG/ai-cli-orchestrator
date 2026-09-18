@@ -19,8 +19,8 @@ class FlowConfigDtoTest {
         FlowConfigDto dto = new FlowConfigDto(
                 Map.of("ship", new FlowConfigDto.FlowDto("배포 준비", "custom", "claude", List.of(
                         new FlowConfigDto.StageDto(null, "planner", List.of()),
-                        new FlowConfigDto.StageDto("리뷰 2인", "reviewer", List.of(new FlowConfigDto.AgentDto("claude", "opus", "high"), new FlowConfigDto.AgentDto("codex", null, null))),
-                        new FlowConfigDto.StageDto(null, "executor", List.of(new FlowConfigDto.AgentDto("codex", null, null)))))),
+                        new FlowConfigDto.StageDto("리뷰 2인", "reviewer", List.of(new FlowConfigDto.AgentDto("claude", "opus", "high", null), new FlowConfigDto.AgentDto("codex", null, null, null))),
+                        new FlowConfigDto.StageDto(null, "executor", List.of(new FlowConfigDto.AgentDto("codex", null, null, null)))))),
                 Map.of("reviewer", new FlowConfigDto.RoleDto("리뷰어", "custom", true)),
                 Map.of("claude", "codex"));
 
@@ -53,7 +53,7 @@ class FlowConfigDtoTest {
     @Test
     void rejectsUnknownRole() {
         FlowConfigDto dto = new FlowConfigDto(
-                Map.of("x", new FlowConfigDto.FlowDto(null, null, "claude", List.of(new FlowConfigDto.StageDto(null, "ghost", List.of(new FlowConfigDto.AgentDto("claude", null, null)))))),
+                Map.of("x", new FlowConfigDto.FlowDto(null, null, "claude", List.of(new FlowConfigDto.StageDto(null, "ghost", List.of(new FlowConfigDto.AgentDto("claude", null, null, null)))))),
                 Map.of(), Map.of());
 
         assertThrows(IllegalArgumentException.class, dto::toConfig);

@@ -394,6 +394,7 @@ public final class ExecutionManager {
         observer.onSummary(step, moduleName + " 시작 (" + module.description()
                 + (options.model() == null ? "" : ", model " + options.model())
                 + (options.effort() == null ? "" : ", effort " + options.effort())
+                + (options.command() == null ? "" : ", " + (options.planMode() ? "permission plan (/plan)" : "command " + options.command()))
                 + (workingDirectory == null ? "" : ", cwd " + workingDirectory) + ")");
         ExecutionContext context = new ObserverContext(step, observer, cancelled, moduleTimeout, idleWarning, options, workingDirectory);
         try {

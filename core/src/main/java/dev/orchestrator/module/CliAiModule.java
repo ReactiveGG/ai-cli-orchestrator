@@ -58,7 +58,7 @@ public abstract class CliAiModule implements AiModule {
         TokenUsage[] usage = { TokenUsage.ZERO };
         String[] failure = { null };
         java.nio.file.Path cwd = context.workingDirectory() != null ? context.workingDirectory() : settings.workingDirectory();
-        int exit = ProcessRunner.run(name(), argv, cwd, prompt.body(), context, line -> {
+        int exit = ProcessRunner.run(name(), argv, cwd, promptText(prompt, context.options()), context, line -> {
             context.detail(line);
             JsonNode event = parse(line);
             if (event != null) {
@@ -113,6 +113,15 @@ public abstract class CliAiModule implements AiModule {
                 || t.contains("oauth token") || t.contains("token has expired") || t.contains("401 unauthorized")
                 || t.contains("\"unauthorized\"") || t.contains("not authenticated");
         return auth ? "Claude CLI 로그인이 필요합니다 – 터미널에서 `claude`를 실행해 /login(또는 `claude auth login`) 하세요. 서버는 로그인 화면을 띄울 수 없습니다" : null;
+    }
+
+    /**
+     * The text sent on stdin. A per-agent slash command ({@code /review}, {@code /spec …}) goes on the
+     * first line so the CLI runs that project command or skill with the compiled prompt as its input.
+     */
+    protected String promptText(CompiledPrompt prompt, AgentOptions options) {
+        String command = options == null ? null : options.promptCommand();
+        return command == null ? prompt.body() : command + "\n" + prompt.body();
     }
 
     /** Thrown by {@link #onEvent} when the CLI reported a terminal error; the run fails with this message. */

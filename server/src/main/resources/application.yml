@@ -40,6 +40,8 @@ orchestrator:
         - "Bash(cat*)"
         - "Bash(python3 -m unittest*)"
         - "Bash(python3 -m pytest*)"
+        - "Bash(python -m unittest*)"     # Windows and venvs usually have `python`, not `python3`
+        - "Bash(python -m pytest*)"
         - "Bash(pytest*)"
         - "Bash(npm test*)"
         - "Bash(npm run test*)"
