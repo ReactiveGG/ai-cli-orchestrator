@@ -7,7 +7,7 @@
 | 방법 | 명령 | 언제 |
 |---|---|---|
 | 스크립트 | `run.cmd` (Windows) / `./run.sh` (Linux·macOS·WSL) | 평소. 소스에서 바로 실행, 인자는 그대로 서버에 전달 |
-| 단일 jar | `./gradlew :server:bootJar -PskipWeb` → `java -jar server/build/libs/server-0.1.4.jar` | 다른 PC에 복사해 실행. jar 하나에 서버와 웹 UI(`web/dist`)가 들어 있다(약 25MB) |
+| 단일 jar | `./gradlew :server:bootJar -PskipWeb` → `java -jar server/build/libs/server-0.1.5.jar` | 다른 PC에 복사해 실행. jar 하나에 서버와 웹 UI(`web/dist`)가 들어 있다(약 25MB) |
 | Windows 앱 | CI 산출물 `AI-CLI-Orchestrator-windows-x64.zip` (약 60MB, 릴리스 태그 `v*`에 첨부) | Java 설치 없이 쓰는 PC. 실행하면 브라우저가 열리고 트레이 아이콘으로 열기·종료. 로그는 `~/.ai-orchestrator/server.log` |
 | IntelliJ | 실행 구성 `server: bootRun (47120)` | IDE에서. `.run/` 폴더에 공유 구성이 있어 프로젝트를 열면 바로 보인다 |
 | IntelliJ 디버그 | 실행 구성 `server: ServerApplication (debug)` | 브레이크포인트가 필요할 때. Program arguments에 `--orchestrator.workspace=...` |
@@ -19,7 +19,7 @@
 ./run.sh --orchestrator.workspace=/path/to/project     # AI가 읽고 고칠 프로젝트
 ./run.sh --server.port=47130                            # 포트 변경
 ./run.sh --orchestrator.data-dir=/other/dir             # 데이터 디렉터리 변경
-java -jar server-0.1.4.jar --orchestrator.workspace=C:\dev\my-service
+java -jar server-0.1.5.jar --orchestrator.workspace=C:\dev\my-service
 ```
 
 `buildDirBase`를 쓰는 환경(WSL, README 개발 메모 참고)에서는 jar가 `<buildDirBase>/server/libs/`에 생긴다.
@@ -73,7 +73,7 @@ java -jar server-0.1.4.jar --orchestrator.workspace=C:\dev\my-service
 | 403 / "허용되지 않은 요청" | 다른 출처(다른 포트·호스트)에서 온 변경 요청이거나 Host 헤더가 loopback이 아님. 반드시 `localhost` 또는 `127.0.0.1`로 연다 |
 | "찾아보기"를 눌러도 폴더 창이 안 뜸 | 창은 브라우저가 아니라 **서버가 도는 PC**에 뜬다(다른 창 뒤에 있을 수 있음). WSL에서 서버를 띄웠으면 `powershell.exe`·`wslpath`가 PATH에 있어야 Windows 창이 뜨고 경로는 `/mnt/c/...`로 바뀐다. Linux 데스크톱은 zenity 또는 kdialog가 필요하다. 없으면 경로를 직접 입력한다 |
 | 작업 공간을 저장할 수 없음 | 허용 루트(기본 홈 디렉터리) 밖 경로. `--orchestrator.security.allowed-workspace-roots=/srv,/home/me`로 넓힌다 |
-| 경쟁 모드가 시작 전에 거부됨 | 작업 공간이 git 저장소가 아니거나 격리가 꺼짐. `git init`하거나 코더가 1개인 프리셋을 쓴다 |
+| 경쟁 모드가 시작 전에 거부됨 / 명령창에 "작업 공간을 한 번 준비해야 합니다" | 코더 2개 이상 프리셋은 작업 공간이 git 저장소여야 한다. 명령창의 "지금 준비" 또는 서버 설정 작업 공간 아래 "준비하기"를 누르면 서버가 `git init`을 해 준다(숨김 폴더 .git 생성, 업로드 없음). Git이 없으면 설치 링크가 뜬다. 코더 1개 프리셋은 준비 없이 된다 |
 | 후보 적용 실패 (`git apply`) | 작업 공간이 기준 커밋에서 바뀌었음. 작업 상세 "patch"로 diff를 받아 수동 적용하거나 변경을 커밋한 뒤 "이 후보 적용" |
 | WSL에서 띄웠는데 Windows 브라우저에서 안 열림 | JVM이 IPv6 매핑 주소에 바인딩해 WSL 포워딩이 안 됨. `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true ./run.sh` |
 | 작업 목록에서 옛 작업이 안 보임 | 보존 한도(기본 200개·30일)를 넘어 정리됨. 작업 화면의 검색·상태 필터로 먼저 찾아보고, 더 오래 보관하려면 `retention` 값을 올린다 |

@@ -4,6 +4,9 @@ import type { FlowStep } from '../components/FlowDiagram'
 /** Agents per stage, e.g. 1-1-2-1. */
 export const signatureOf = (f: FlowDto) => f.stages.map((s) => Math.max(1, s.models.length)).join('-')
 
+/** Coders in a preset signature such as "1-3-3-1" (planner-coder-reviewer-verifier); 1 when unreadable. */
+export const codersOf = (signature: string): number => Number(signature.split('-')[1] ?? 1) || 1
+
 export const agent = (module: string): AgentDto => ({ module, model: null, effort: null, command: null })
 
 /** {@code claude}, {@code claude opus}, {@code claude opus/high}. */

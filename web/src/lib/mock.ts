@@ -2,7 +2,7 @@
 // (see .env.mock). Same shapes as the real API; jobs run on a timer so the UI
 // shows progress, streaming logs and cancellation without any backend.
 import type {
-  DirListing,
+  DirListing, WorkspaceStatus,
   AgentDto, Catalog, Dashboard, FlowConfig, FlowDto, FlowInfo, Job, JobEvent, JobRequest, JobStep, LogLevel, PlanStep, StageDto, Settings, StatusReport, TokenUsage,
 } from './types'
 
@@ -17,6 +17,8 @@ const SLASH_COMMANDS: Catalog['commands'] = [
   { name: '/review', kind: 'project', description: '프로젝트 리뷰 체크리스트로 변경 사항을 검토한다', argument: '<경로>', scope: [], source: 'C:\\dev\\my-service\\.claude\\commands\\review.md' },
   { name: '/spec', kind: 'skill', description: '요구사항을 스펙 문서로 정리한다', argument: null, scope: [], source: 'C:\\dev\\my-service\\.claude\\skills\\spec\\SKILL.md' },
 ]
+
+let mockGitRepo = false
 
 const MODULES: StatusReport['modules'] = [
   { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli', loggedIn: true, authMethod: 'claude.ai', command: 'C:\\Users\\me\\.local\\bin\\claude.exe', searched: null },
@@ -331,6 +333,8 @@ export const mockApi = {
     return y
   },
   settings: (): Promise<Settings> => delay(structuredClone(mockSettings)),
+  workspaceStatus: (): Promise<WorkspaceStatus> => delay({ path: mockSettings.workspace, exists: true, gitRepo: mockGitRepo, gitAvailable: true, gitVersion: 'git version 2.47.0.windows.1', gitCommand: 'C:\\Program Files\\Git\\cmd\\git.exe' }),
+  gitInit: (): Promise<WorkspaceStatus> => { mockGitRepo = true; return delay({ path: mockSettings.workspace, exists: true, gitRepo: true, gitAvailable: true, gitVersion: 'git version 2.47.0.windows.1', gitCommand: 'git' }) },
   listDirs: (path?: string): Promise<DirListing> => { const base = path || 'C:\\dev'; return delay({ path: base, parent: base.includes('\\') && base !== 'C:\\dev' ? base.slice(0, base.lastIndexOf('\\')) : null, dirs: ['my-service', 'web-app', 'scripts'].map((n) => ({ name: n, path: `${base}\\${n}`, gitRepo: n !== 'scripts' })), roots: [{ name: 'C:\\dev', path: 'C:\\dev', gitRepo: false }], allowed: true, error: null }) },
   browseFolder: (initial: string): Promise<{ path: string | null; backend: string }> => delay({ path: initial ? initial.replace(/[\\/]+$/, '') + '\\picked-folder' : 'C:\\dev\\picked-folder', backend: 'MOCK' }),
   saveSettings: (body: Settings): Promise<Settings> => { mockSettings = structuredClone(body); return delay(structuredClone(mockSettings)) },

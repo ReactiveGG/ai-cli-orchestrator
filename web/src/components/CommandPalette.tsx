@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import type { Catalog, PlanStep } from '../lib/types'
 import { FlowDiagram } from './FlowDiagram'
 import { errorMessage } from '../lib/errors'
+import { codersOf } from '../lib/plan'
+import { useQueryClient } from '@tanstack/react-query'
 
 /**
  * Ctrl+K palette. Pick a preset (how many agents per pipeline stage), then type
@@ -18,6 +20,9 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
   onSubmitted: (jobIds: string[]) => void
 }) {
   const catalog = useQuery({ queryKey: ['catalog'], queryFn: api.catalog, enabled: open })
+  const qc = useQueryClient()
+  const ws = useQuery({ queryKey: ['workspace-status'], queryFn: api.workspaceStatus, enabled: open, staleTime: 15_000 })
+  const prepare = useMutation({ mutationFn: api.gitInit, onSuccess: () => { qc.invalidateQueries({ queryKey: ['workspace-status'] }); setError(null) }, onError: (e: Error) => setError(errorMessage(e)) })
   const [text, setText] = useState('')
   const [preset, setPreset] = useState('default')
   const [error, setError] = useState<string | null>(null)
@@ -35,6 +40,11 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
   const active = presets.find((p) => p.name === preset)
 
   const lines = useMemo(() => text.split('\n').map((l) => l.trim()).filter(Boolean), [text])
+
+  // A preset with 2+ coders isolates each coder in a git worktree: the saved workspace must be a repo (and git installed).
+  const inlinePreset = (line: string) => { const m = line.match(/--preset[ =](\S+)|(?:^|\s)-p\s+(\S+)/); return m ? (m[1] ?? m[2]) : undefined }
+  const needsRepo = lines.some((l) => { const name = inlinePreset(l) ?? preset; const p = presets.find((x) => x.name === name); return p ? codersOf(p.signature) >= 2 : false })
+  const blocked = needsRepo && !!ws.data && !ws.data.gitRepo
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -116,11 +126,20 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
           </div>
         )}
 
+        {blocked && ws.data && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <span>이 프리셋은 코더가 여러 명이라 작업 공간을 한 번 준비해야 합니다(폴더 안에 숨김 폴더 .git 생성, 인터넷 업로드 없음).</span>
+            {ws.data.gitAvailable
+              ? <button onClick={() => prepare.mutate()} disabled={prepare.isPending} className="rounded border border-amber-400 bg-white px-2 py-0.5 text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:bg-slate-900 dark:text-amber-200">{prepare.isPending ? '준비 중…' : '지금 준비'}</button>
+              : <a href="https://git-scm.com/download/win" target="_blank" rel="noreferrer" className="rounded border border-amber-400 bg-white px-2 py-0.5 text-amber-900 hover:bg-amber-100 dark:bg-slate-900 dark:text-amber-200">Git 설치가 먼저 필요합니다 ↗</a>}
+            <span className="text-amber-700/70 dark:text-amber-300/70">또는 코더 1개 프리셋(기본, 교차 리뷰)을 고르세요.</span>
+          </div>
+        )}
         <div className="flex items-center justify-between border-t border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
           <span className="min-w-0 break-words text-rose-600 dark:text-rose-300">{error}</span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500">{lines.length}개 작업</span>
-            <button onClick={() => submit.mutate()} disabled={submit.isPending || lines.length === 0} className="rounded-md bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">
+            <button onClick={() => submit.mutate()} disabled={submit.isPending || lines.length === 0 || blocked} className="rounded-md bg-slate-900 px-3 py-1.5 text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">
               {submit.isPending ? '제출 중…' : lines.length > 1 ? `${lines.length}개 실행` : '실행'}
             </button>
           </div>
