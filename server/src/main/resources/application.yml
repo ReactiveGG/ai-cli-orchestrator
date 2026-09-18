@@ -48,9 +48,14 @@ orchestrator:
         - "Bash(npx vitest*)"
         - "Bash(npx jest*)"
         - "Bash(./gradlew test*)"
+        - "Bash(gradlew.bat test*)"      # Windows (cmd/PowerShell shells)
+        - "Bash(gradlew test*)"
+        - "Bash(./mvnw test*)"
+        - "Bash(mvnw.cmd test*)"
         - "Bash(mvn test*)"
         - "Bash(go test*)"
         - "Bash(cargo test*)"
+        - "Bash(dotnet test*)"
       extra-args: []      # e.g. ["--max-turns", "30"]
     codex:
       mode: AUTO
