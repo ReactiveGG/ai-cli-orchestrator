@@ -58,6 +58,8 @@ const realApi = {
   status: () => request<StatusReport>('/api/status'),
   /** Re-probe the CLIs now (after install/login) instead of waiting for the cache to expire. */
   refreshStatus: () => request<StatusReport>('/api/status/refresh', { method: 'POST' }),
+  /** `claude auth logout` on the server's machine — logs every terminal on that PC out too. */
+  claudeLogout: () => request<{ loggedOut: boolean; exitCode: number; output: string }>('/api/status/logout', { method: 'POST' }),
   /** Opens a terminal on the server's machine running `claude auth login`. */
   claudeLogin: () => request<{ opened: boolean; command: string; terminal: string }>('/api/status/login', { method: 'POST' }),
   catalog: () => request<Catalog>('/api/catalog'),

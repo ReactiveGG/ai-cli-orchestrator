@@ -305,6 +305,7 @@ export const mockApi = {
   },
   status: (): Promise<StatusReport> => delay(status()),
   refreshStatus: (): Promise<StatusReport> => delay(status()),
+  claudeLogout: (): Promise<{ loggedOut: boolean; exitCode: number; output: string }> => delay({ loggedOut: true, exitCode: 0, output: 'Logged out' }),
   claudeLogin: (): Promise<{ opened: boolean; command: string; terminal: string }> => delay({ opened: true, command: 'claude auth login', terminal: 'cmd.exe' }),
   catalog: (): Promise<Catalog> => delay({ flows: Object.entries(config.flows).map(([n, f]) => flowInfo(n, f)), options: OPTIONS, modules: MODULES.map((m) => ({ name: m.name, description: m.description, available: m.available })), roles: Object.entries(config.roles).map(([name, r]) => ({ name, label: r.label, instructions: r.instructions })), commands: SLASH_COMMANDS }),
   jobs: (): Promise<Job[]> => delay(sorted()),

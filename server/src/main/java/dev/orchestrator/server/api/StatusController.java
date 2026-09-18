@@ -84,6 +84,34 @@ public class StatusController {
         t.start();
     }
 
+    /**
+     * Logs the CLI out ({@code claude auth logout}). This is the CLI's own login, shared with every
+     * terminal on this machine, so the page asks for confirmation before calling this.
+     */
+    @PostMapping("/logout")
+    public Map<String, Object> logout() throws IOException, InterruptedException {
+        String configured = orchestration.settings().module("claude").command();
+        String command = configured == null || configured.isBlank() ? "claude" : configured;
+        Path resolved = ProcessRunner.resolveExecutable(command).orElse(null);
+        if (resolved == null) {
+            throw new IllegalStateException("claude 실행 파일을 찾지 못했습니다.");
+        }
+        Process process = new ProcessBuilder(ProcessRunner.launchCommand(List.of(resolved.toString(), "auth", "logout"))).redirectErrorStream(true).start();
+        String output;
+        try (var in = process.getInputStream()) {
+            output = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).strip();
+        }
+        if (!process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            throw new IllegalStateException("claude auth logout이 30초 안에 끝나지 않았습니다.");
+        }
+        status.invalidate();
+        ClaudeStatusService.StatusReport report = status.report();
+        jobs.broadcast("status", report);
+        boolean loggedOut = report.modules().stream().anyMatch(m -> "claude".equals(m.name()) && Boolean.FALSE.equals(m.loggedIn()));
+        return Map.of("loggedOut", loggedOut, "exitCode", process.exitValue(), "output", output.length() > 500 ? output.substring(0, 500) : output);
+    }
+
     /** A visible terminal per OS; the user finishes the flow there and closes it. */
     static List<String> terminalCommand(String claude) {
         String os = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
