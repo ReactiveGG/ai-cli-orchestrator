@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 export function StatTile({ label, value, hint, tone = 'default', children }: {
-  label: string
+  label: ReactNode
   value: ReactNode
   hint?: ReactNode
   tone?: 'default' | 'ok' | 'warn' | 'bad'
