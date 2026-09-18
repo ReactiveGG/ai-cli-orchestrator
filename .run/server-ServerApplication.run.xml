@@ -1,0 +1,18 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- 디버거를 붙이기 편한 일반 Application 실행 구성. 인자는 Program arguments에 "--orchestrator.workspace=C:\dev\my-service"처럼 넣는다. -->
+  <configuration default="false" name="server: ServerApplication (debug)" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="dev.orchestrator.server.ServerApplication" />
+    <module name="ai-cli-orchestrator.server.main" />
+    <option name="PROGRAM_PARAMETERS" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <extension name="coverage">
+      <pattern>
+        <option name="PATTERN" value="dev.orchestrator.server.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
