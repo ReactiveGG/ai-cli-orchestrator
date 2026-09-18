@@ -206,6 +206,22 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
     }
 
     @Override
+    public void revert(CandidatePatch patch, Path workspace) {
+        if (patch.isEmpty()) {
+            return;
+        }
+        Path toplevel = Path.of(git(workspace, "rev-parse", "--show-toplevel").trim());
+        String file = patch.patchFile().toAbsolutePath().toString();
+        // Reverse apply: files the patch created are removed, edits are undone. Fails if the user changed
+        // those files since, which is the right outcome — we must not silently discard their work.
+        Result reverse = exec(toplevel, Map.of(), false, "apply", "-R", "--whitespace=nowarn", file);
+        if (reverse.exit != 0) {
+            throw new IsolationException("후보 " + patch.index() + " 되돌리기 실패 (적용 후 작업 공간이 바뀐 듯합니다): " + reverse.output.strip()
+                    + " (patch: " + patch.patchFile() + ")");
+        }
+    }
+
+    @Override
     public void cleanup(String jobId, Path workspace) {
         Path jobRoot = root.resolve(jobId);
         if (!Files.isDirectory(jobRoot)) {

@@ -21,6 +21,11 @@ public interface WorkspaceIsolation {
     /** Applies a captured patch to the workspace's working tree (index untouched). */
     void apply(CandidatePatch patch, Path workspace);
 
+    /** Undoes a previously applied patch (reverse apply) so another candidate can replace it. */
+    default void revert(CandidatePatch patch, Path workspace) {
+        throw new UnsupportedOperationException("revert not supported");
+    }
+
     /** Removes every worktree created for the job. Patch files are kept. */
     void cleanup(String jobId, Path workspace);
 }

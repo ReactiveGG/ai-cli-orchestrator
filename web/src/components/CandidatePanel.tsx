@@ -35,7 +35,7 @@ export function CandidatePanel({ job }: { job: Job }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold">후보 {job.candidates.length}개 (경쟁 모드)</span>
         {job.decisionNote && (
-          <span className={`rounded-full px-2 py-0.5 text-xs ${job.applied ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`}>{job.decisionNote}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${job.applied ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'}`}>{job.decisionNote}</span>
         )}
         {error && <span className="text-xs text-rose-600">{error}</span>}
       </div>
@@ -46,12 +46,12 @@ export function CandidatePanel({ job }: { job: Job }) {
         <tbody>
           {job.candidates.map((c) => (
             <>
-              <tr key={c.index} className={`border-t border-slate-100 dark:border-slate-800 ${c.chosen ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : ''}`}>
+              <tr key={c.index} className={`border-t border-slate-100 dark:border-slate-800 ${c.chosen ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''}`}>
                 <td className="py-1.5 pr-2 font-medium">후보 {c.index}</td>
                 <td className="mono py-1.5 pr-2 text-xs">{c.agent}</td>
                 <td className="py-1.5 pr-2 text-xs tabular-nums">{c.empty ? <span className="text-slate-400">변경 없음</span> : <>{c.filesChanged} files <span className="text-emerald-600">+{c.insertions}</span> <span className="text-rose-600">-{c.deletions}</span></>}</td>
                 <td className="py-1.5 pr-2 text-xs">
-                  {c.applied ? <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><Check size={12} /> 적용됨</span> : c.chosen ? <span className="text-amber-700 dark:text-amber-300">채택 (미적용)</span> : <span className="text-slate-400">–</span>}
+                  {c.applied ? <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-300"><Check size={12} /> 적용됨</span> : c.chosen ? <span className="text-amber-700 dark:text-amber-300">채택 (미적용)</span> : <span className="text-slate-400">–</span>}
                 </td>
                 <td className="py-1.5 text-right">
                   <button onClick={() => togglePatch(c.index)} disabled={c.empty} className="mr-1 inline-flex items-center gap-1 rounded border border-slate-300 px-2 py-0.5 text-xs disabled:opacity-40 dark:border-slate-700"><FileDiff size={12} /> {openPatch === c.index ? '닫기' : 'patch'}</button>

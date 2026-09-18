@@ -121,6 +121,30 @@ class GitWorktreeIsolationTest {
     }
 
     @Test
+    void switchingCandidatesRevertsTheAppliedOneFirst() throws Exception {
+        List<Candidate> candidates = isolation.prepare("job3", workspace, 2);
+        // both candidates create the same new file with different content, like two coders building index.html
+        Files.writeString(candidates.get(0).workingDir().resolve("index.html"), "<h1>one</h1>\n");
+        Files.writeString(candidates.get(1).workingDir().resolve("index.html"), "<h1>two</h1>\n");
+        CandidatePatch p1 = isolation.capture(candidates.get(0), patches);
+        CandidatePatch p2 = isolation.capture(candidates.get(1), patches);
+
+        isolation.apply(p2, workspace);
+        assertEquals("<h1>two</h1>\n", Files.readString(workspace.resolve("index.html")));
+        assertThrows(IsolationException.class, () -> isolation.apply(p1, workspace), "same new file: plain apply refuses ('already exists')");
+
+        isolation.revert(p2, workspace);
+        assertFalse(Files.exists(workspace.resolve("index.html")), "reverse apply removes the file the patch created");
+        isolation.apply(p1, workspace);
+        assertEquals("<h1>one</h1>\n", Files.readString(workspace.resolve("index.html")), "the other candidate is now on disk");
+
+        Files.writeString(workspace.resolve("index.html"), "<h1>edited by user</h1>\n");
+        IsolationException e = assertThrows(IsolationException.class, () -> isolation.revert(p1, workspace));
+        assertTrue(e.getMessage().contains("되돌리기 실패"), "user edits after apply are never discarded silently: " + e.getMessage());
+        isolation.cleanup("job3", workspace);
+    }
+
+    @Test
     void emptyCandidateAndConflictingApply() throws Exception {
         List<Candidate> candidates = isolation.prepare("job3", workspace, 1);
         CandidatePatch untouched = isolation.capture(candidates.get(0), patches);
