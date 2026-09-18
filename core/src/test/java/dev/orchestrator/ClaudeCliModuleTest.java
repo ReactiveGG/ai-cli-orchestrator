@@ -1,6 +1,7 @@
 package dev.orchestrator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,6 +55,17 @@ class ClaudeCliModuleTest {
         script.toFile().setExecutable(true);
         return new ClaudeCliModule(new CliModuleSettings(script.toString(), List.of("--max-turns", "5"), tempDir, model, budget,
                 model == null ? List.of() : List.of("Bash(git status*)", "Bash(pytest*)")));
+    }
+
+    /** A `claude` that prints {@code text} and exits with {@code code} (or kills itself when code == 137), like an unauthenticated or killed CLI. */
+    private ClaudeCliModule fakeClaudeExiting(String text, int code) throws IOException {
+        Path script = tempDir.resolve("fake-claude-exit.sh");
+        String body = code == 137
+                ? "#!/bin/sh\necho '" + text + "'\nkill -9 $$\n"
+                : "#!/bin/sh\necho '" + text + "' >&2\nexit " + code + "\n";
+        Files.writeString(script, body);
+        script.toFile().setExecutable(true);
+        return new ClaudeCliModule(new CliModuleSettings(script.toString(), List.of(), tempDir, null, null, List.of()));
     }
 
     private static ExecutionContext context(List<String> summary, List<String> detail) {
@@ -118,6 +130,56 @@ class ClaudeCliModuleTest {
         String argv = detail.stream().filter(l -> l.contains("\"argv\"")).findFirst().orElseThrow();
         assertTrue(argv.contains("--model opus --effort high"), argv);
         assertTrue(!argv.contains("--model sonnet"), "agent model must win over the module default");
+    }
+
+    @Test
+    void notLoggedInExitNamesTheFix() throws IOException {
+        ClaudeCliModule module = fakeClaudeExiting("Not logged in · Please run /login", 1);
+
+        ModuleExecutionException error = assertThrows(ModuleExecutionException.class, () ->
+                module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(new ArrayList<>(), new ArrayList<>())));
+
+        assertEquals(ModuleExecutionException.Kind.FAILED, error.kind());
+        assertTrue(error.getMessage().contains("로그인이 필요합니다"), error.getMessage());
+        assertTrue(error.getMessage().contains("/login"), error.getMessage());
+        assertTrue(error.getMessage().contains("Not logged in"), "original CLI text kept: " + error.getMessage());
+    }
+
+    @Test
+    void authErrorInResultEventNamesTheFix() throws IOException {
+        String stream = """
+                {"type":"system","subtype":"init","cwd":"/work","model":"claude-fable-5-1","permissionMode":"default","claude_code_version":"2.1.274"}
+                {"type":"result","subtype":"error_during_execution","is_error":true,"errors":["Invalid API key · Please run /login"],"num_turns":0,"total_cost_usd":0,"usage":{"input_tokens":0,"output_tokens":0},"permission_denials":[]}
+                """;
+        ClaudeCliModule module = fakeClaude(stream, null, null);
+
+        ModuleExecutionException error = assertThrows(ModuleExecutionException.class, () ->
+                module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(new ArrayList<>(), new ArrayList<>())));
+
+        assertTrue(error.getMessage().contains("로그인이 필요합니다"), error.getMessage());
+        assertTrue(error.getMessage().contains("실행 중 오류"), error.getMessage());
+    }
+
+    @Test
+    void processKilledFromOutsideIsReportedAsSuch() throws IOException {
+        ClaudeCliModule module = fakeClaudeExiting("starting", 137);
+
+        ModuleExecutionException error = assertThrows(ModuleExecutionException.class, () ->
+                module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(new ArrayList<>(), new ArrayList<>())));
+
+        assertEquals(ModuleExecutionException.Kind.FAILED, error.kind(), "not CANCELLED: the orchestrator did not stop it");
+        assertTrue(error.getMessage().contains("강제 종료"), error.getMessage());
+        assertTrue(error.getMessage().contains("137"), error.getMessage());
+    }
+
+    @Test
+    void ordinaryFailureShowsExitCodeAndOutputTail() throws IOException {
+        ClaudeCliModule module = fakeClaudeExiting("boom: something else", 2);
+        ModuleExecutionException error = assertThrows(ModuleExecutionException.class, () ->
+                module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(new ArrayList<>(), new ArrayList<>())));
+        assertTrue(error.getMessage().contains("exited with code 2"), error.getMessage());
+        assertTrue(error.getMessage().contains("boom"), error.getMessage());
+        assertFalse(error.getMessage().contains("로그인"), error.getMessage());
     }
 
     @Test

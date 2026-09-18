@@ -26,7 +26,11 @@ import org.springframework.web.client.RestClient;
 public class ClaudeStatusService {
     private static final Logger log = LoggerFactory.getLogger(ClaudeStatusService.class);
 
-    public record ModuleStatus(String name, String description, boolean available, String version, String mode) {
+    /**
+     * @param loggedIn   {@code claude auth status} result: true/false, or null when unknown (stub, codex, probe failed)
+     * @param authMethod e.g. {@code claude.ai} or {@code console}, when logged in
+     */
+    public record ModuleStatus(String name, String description, boolean available, String version, String mode, Boolean loggedIn, String authMethod) {
     }
 
     public record RemoteStatus(String indicator, String description, Instant checkedAt) {
@@ -73,7 +77,57 @@ public class ClaudeStatusService {
         }
         String mode = module.description().startsWith("cli") ? "cli" : "stub";
         String version = "cli".equals(mode) && available ? versionCache.computeIfAbsent(command, this::probeVersion) : null;
-        return new ModuleStatus(module.name(), module.description(), available, version, mode);
+        AuthStatus auth = "cli".equals(mode) && available && "claude".equals(module.name()) ? probeAuth(command) : null;
+        return new ModuleStatus(module.name(), module.description(), available, version, mode,
+                auth == null ? null : auth.loggedIn(), auth == null ? null : auth.authMethod());
+    }
+
+    public record AuthStatus(Boolean loggedIn, String authMethod) {
+    }
+
+    /** Parses {@code claude auth status} JSON ({"loggedIn": true, "authMethod": "claude.ai", ...}); null when it is not that JSON. */
+    static AuthStatus parseAuth(String text) {
+        if (text == null) {
+            return null;
+        }
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(text.substring(start, end + 1));
+            if (!node.has("loggedIn")) {
+                return null;
+            }
+            return new AuthStatus(node.path("loggedIn").asBoolean(false), node.hasNonNull("authMethod") ? node.path("authMethod").asText() : null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Runs {@code <command> auth status} (Claude Code 2.x) so the dashboard can say "로그인 필요" before a job burns a slot. */
+    private AuthStatus probeAuth(String command) {
+        if (!ProcessRunner.isOnPath(command)) {
+            return null;
+        }
+        try {
+            Process process = new ProcessBuilder(ProcessRunner.launchCommand(List.of(command, "auth", "status"))).redirectErrorStream(true).start();
+            String text;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                text = reader.lines().collect(java.util.stream.Collectors.joining("\n"));
+            }
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return null;
+            }
+            return parseAuth(text);
+        } catch (Exception e) {
+            log.debug("Auth probe for {} failed: {}", command, e.toString());
+            return null;
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private String probeVersion(String command) {

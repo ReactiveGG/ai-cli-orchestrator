@@ -37,11 +37,12 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
       />
       <StatTile
         label="Claude 상태"
-        tone={claude?.available ? remoteTone : 'bad'}
-        value={claude ? (claude.available ? (claude.mode === 'cli' ? 'CLI 사용 가능' : '스텁 모드') : '설치 안 됨') : '…'}
+        tone={claude?.available ? (claude.loggedIn === false ? 'bad' : remoteTone) : 'bad'}
+        value={claude ? (claude.available ? (claude.mode === 'cli' ? (claude.loggedIn === false ? '로그인 필요' : 'CLI 사용 가능') : '스텁 모드') : '설치 안 됨') : '…'}
         hint={
           <>
-            {claude?.version && <div>{claude.version}</div>}
+            {claude?.version && <div>{claude.version}{claude.loggedIn === true && claude.authMethod ? ` · 로그인: ${claude.authMethod}` : ''}</div>}
+            {claude?.loggedIn === false && <div className="text-rose-600 dark:text-rose-300">터미널에서 <span className="mono">claude</span> 실행 후 /login 하면 작업을 실행할 수 있습니다</div>}
             {remote && <div>Anthropic: {remote.description || remote.indicator}</div>}
             {codex && <div>codex: {codex.available ? (codex.mode === 'cli' ? 'CLI 사용 가능' : '스텁') : '설치 안 됨'}</div>}
           </>

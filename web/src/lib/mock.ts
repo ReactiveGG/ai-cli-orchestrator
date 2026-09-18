@@ -10,8 +10,8 @@ const OPTIONS: Catalog['options'] = [
   { flag: '--language', type: 'string', repeatable: false, defaultValue: 'ko', labelKo: '응답 언어', descriptionKo: 'AI 응답 언어 코드. 기본값 ko.' },
 ]
 const MODULES: StatusReport['modules'] = [
-  { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli' },
-  { name: 'codex', description: 'stub', available: false, version: null, mode: 'stub' },
+  { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli', loggedIn: true, authMethod: 'claude.ai' },
+  { name: 'codex', description: 'stub', available: false, version: null, mode: 'stub', loggedIn: null, authMethod: null },
 ]
 const BUILT_IN_ROLES: FlowConfig['roles'] = {
   executor: { label: '실행', builtIn: true, instructions: '' },

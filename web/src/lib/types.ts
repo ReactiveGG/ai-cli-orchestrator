@@ -90,6 +90,9 @@ export interface ModuleStatus {
   available: boolean
   version: string | null
   mode: 'cli' | 'stub'
+  /** `claude auth status` result; null when unknown (stub, codex, probe failed) */
+  loggedIn: boolean | null
+  authMethod: string | null
 }
 
 export interface RemoteStatus {

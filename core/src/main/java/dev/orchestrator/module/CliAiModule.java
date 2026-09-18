@@ -75,13 +75,44 @@ public abstract class CliAiModule implements AiModule {
             }
         });
         if (failure[0] != null) {
-            throw new ModuleExecutionException(Kind.FAILED, name(), name() + ": " + failure[0]);
+            String hint = loginHint(failure[0]);
+            throw new ModuleExecutionException(Kind.FAILED, name(), name() + ": " + (hint == null ? "" : hint + " – ") + failure[0]);
         }
         if (exit != 0) {
-            throw new ModuleExecutionException(Kind.FAILED, name(),
-                    name() + " exited with code " + exit + (output.isEmpty() ? "" : ": " + tail(output)));
+            throw new ModuleExecutionException(Kind.FAILED, name(), describeExit(exit, output.toString()));
         }
         return new ExecutionResult(name(), prompt.taskType(), output.toString().trim(), usage[0]);
+    }
+
+    /**
+     * Turns a non-zero exit into a message a user can act on: a login problem names the fix,
+     * a signal death (the server did not kill it: no cancel/timeout came through here) says so,
+     * anything else shows the exit code and the tail of the output.
+     */
+    String describeExit(int exit, String output) {
+        String hint = loginHint(output);
+        if (hint != null) {
+            return name() + ": " + hint + " (종료 코드 " + exit + (output.isBlank() ? "" : ", CLI 출력: " + tail(new StringBuilder(output))) + ")";
+        }
+        if (exit == 137 || exit == 143 || exit == 130 || exit == -1 || (exit > 128 && output.isBlank())) {
+            String signal = switch (exit) { case 137 -> "SIGKILL"; case 143 -> "SIGTERM"; case 130 -> "SIGINT"; default -> "signal"; };
+            return name() + " 프로세스가 외부에서 강제 종료됨 (종료 코드 " + exit + ", " + signal + ") – 작업 관리자나 다른 셸에서 죽였거나 메모리 부족일 수 있음"
+                    + (output.isBlank() ? "" : ": " + tail(new StringBuilder(output)));
+        }
+        return name() + " exited with code " + exit + (output.isBlank() ? "" : ": " + tail(new StringBuilder(output)));
+    }
+
+    /** Recognises "not logged in" style output from the CLI and returns the fix, or null. */
+    protected static String loginHint(String text) {
+        if (text == null) {
+            return null;
+        }
+        String t = text.toLowerCase(java.util.Locale.ROOT);
+        boolean auth = t.contains("not logged in") || t.contains("please run /login") || t.contains("please log in")
+                || t.contains("claude login") || t.contains("invalid api key") || t.contains("authentication_error")
+                || t.contains("oauth token") || t.contains("token has expired") || t.contains("401 unauthorized")
+                || t.contains("\"unauthorized\"") || t.contains("not authenticated");
+        return auth ? "Claude CLI 로그인이 필요합니다 – 터미널에서 `claude`를 실행해 /login(또는 `claude auth login`) 하세요. 서버는 로그인 화면을 띄울 수 없습니다" : null;
     }
 
     /** Thrown by {@link #onEvent} when the CLI reported a terminal error; the run fails with this message. */
