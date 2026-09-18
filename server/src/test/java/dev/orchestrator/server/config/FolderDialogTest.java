@@ -14,10 +14,11 @@ class FolderDialogTest {
         List<String> cmd = FolderDialog.command(FolderDialog.Backend.WINDOWS, "C:\\dev\\it's mine");
         assertEquals("powershell", cmd.get(0));
         assertTrue(cmd.contains("-STA"), "FolderBrowserDialog needs a single-threaded apartment");
+        assertFalse(cmd.contains("-NonInteractive"), "-NonInteractive makes the dialog return Cancel immediately (seen on Windows 11 via WSL interop)");
         String script = cmd.get(cmd.size() - 1);
         assertTrue(script.contains("FolderBrowserDialog"));
         assertTrue(script.contains("SelectedPath = 'C:\\dev\\it''s mine'"), "single quotes doubled: " + script);
-        assertTrue(script.contains("TopMost = $true"), "dialog must come up in front of the browser");
+        assertFalse(script.contains("$owner"), "an invisible owner window makes the dialog cancel itself at once");
         assertTrue(script.contains("WriteLine($d.SelectedPath)"));
 
         List<String> wsl = FolderDialog.command(FolderDialog.Backend.WSL, "");

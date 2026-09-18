@@ -105,7 +105,7 @@ public class FolderDialog {
     /** The exact command per backend; the picked path is the last non-empty stdout line. */
     static List<String> command(Backend backend, String start) {
         return switch (backend) {
-            case WINDOWS, WSL -> List.of(backend == Backend.WINDOWS ? "powershell" : "powershell.exe", "-NoProfile", "-STA", "-NonInteractive", "-Command", powershellScript(start));
+            case WINDOWS, WSL -> List.of(backend == Backend.WINDOWS ? "powershell" : "powershell.exe", "-NoProfile", "-STA", "-Command", powershellScript(start));   // no -NonInteractive: with it the dialog returns Cancel at once
             case ZENITY -> start.isEmpty()
                     ? List.of("zenity", "--file-selection", "--directory", "--title=작업 공간 선택")
                     : List.of("zenity", "--file-selection", "--directory", "--title=작업 공간 선택", "--filename=" + (start.endsWith("/") ? start : start + "/"));
@@ -116,7 +116,11 @@ public class FolderDialog {
         };
     }
 
-    /** FolderBrowserDialog on an STA thread, forced to the front of the browser window; prints the path or nothing. */
+    /**
+     * FolderBrowserDialog on an STA thread; prints the path or nothing. No owner window: an
+     * invisible TopMost owner (tried first, to force the dialog in front of the browser) made
+     * ShowDialog return Cancel immediately when launched from the server process.
+     */
     static String powershellScript(String start) {
         String escaped = start.replace("'", "''");
         return "Add-Type -AssemblyName System.Windows.Forms; "
@@ -124,10 +128,7 @@ public class FolderDialog {
                 + "$d.Description = 'AI CLI Orchestrator 작업 공간 (AI가 읽고 수정하는 프로젝트 폴더)'; "
                 + "$d.ShowNewFolderButton = $true; "
                 + (escaped.isEmpty() ? "" : "if (Test-Path -LiteralPath '" + escaped + "') { $d.SelectedPath = '" + escaped + "' }; ")
-                + "$owner = New-Object System.Windows.Forms.Form -Property @{ TopMost = $true; ShowInTaskbar = $false; Opacity = 0 }; "
-                + "$owner.Show(); "
-                + "if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.WriteLine($d.SelectedPath) }; "
-                + "$owner.Close()";
+                + "if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.WriteLine($d.SelectedPath) }";
     }
 
     private static Optional<String> run(List<String> command, long timeoutSeconds) throws IOException, InterruptedException {
