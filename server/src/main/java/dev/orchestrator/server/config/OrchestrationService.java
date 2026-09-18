@@ -66,7 +66,7 @@ public class OrchestrationService {
     public synchronized void reload(FlowConfig config) {
         config.validate();
         AiModule[] modules = MODULE_NAMES.stream().map(this::createModule).toArray(AiModule[]::new);
-        manager.set(new ExecutionManager(new PromptCompiler(), config, settings.moduleTimeout(), settings.idleWarning(), isolationSettings(), modules));
+        manager.set(new ExecutionManager(new PromptCompiler(promptLimits()), config, settings.moduleTimeout(), settings.idleWarning(), isolationSettings(), modules));
     }
 
     /** Rebuilds the manager after runtime settings changed (workspace, timeouts, modules, isolation). */
@@ -75,6 +75,11 @@ public class OrchestrationService {
     }
 
     /** Candidate worktrees live under {@code <data-dir>/worktrees}; patches under {@code <data-dir>/jobs/<id>/candidates}. */
+    private dev.orchestrator.application.PromptLimits promptLimits() {
+        OrchestratorProperties.Prompt p = properties.prompt() == null ? new OrchestratorProperties.Prompt(24_000, 60_000) : properties.prompt();
+        return new dev.orchestrator.application.PromptLimits(p.maxResultChars(), p.maxTotalChars());
+    }
+
     private IsolationSettings isolationSettings() {
         RuntimeSettings.IsolationSnapshot iso = settings.isolation();
         if (iso == null || !iso.enabled()) {

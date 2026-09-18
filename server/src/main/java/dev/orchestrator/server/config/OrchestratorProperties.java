@@ -29,7 +29,8 @@ public record OrchestratorProperties(
         @DefaultValue Status status,
         @DefaultValue Isolation isolation,
         @DefaultValue Security security,
-        @DefaultValue Retention retention
+        @DefaultValue Retention retention,
+        @DefaultValue Prompt prompt
 ) {
     /**
      * @param model        model alias/name passed to the CLI ({@code --model}), null = CLI default
@@ -81,6 +82,18 @@ public record OrchestratorProperties(
     public record Retention(
             @DefaultValue("200") int maxJobs,
             @DefaultValue("30d") Duration maxAge
+    ) {
+    }
+
+    /**
+     * Caps on earlier-stage text inlined into the next agent's prompt (see {@code PromptLimits}).
+     *
+     * @param maxResultChars per previous result (0 = unlimited)
+     * @param maxTotalChars  across all previous results of a stage (0 = unlimited)
+     */
+    public record Prompt(
+            @DefaultValue("24000") int maxResultChars,
+            @DefaultValue("60000") int maxTotalChars
     ) {
     }
 
