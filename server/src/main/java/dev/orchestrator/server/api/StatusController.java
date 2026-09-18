@@ -19,12 +19,61 @@ public class StatusController {
     private final ClaudeStatusService status;
     private final OrchestrationService orchestration;
     private final dev.orchestrator.server.job.JobService jobs;
+    private final dev.orchestrator.server.status.SubscriptionUsage subscription;
     private final java.util.concurrent.atomic.AtomicBoolean watching = new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean probing = new java.util.concurrent.atomic.AtomicBoolean();
 
-    public StatusController(ClaudeStatusService status, OrchestrationService orchestration, dev.orchestrator.server.job.JobService jobs) {
+    public StatusController(ClaudeStatusService status, OrchestrationService orchestration, dev.orchestrator.server.job.JobService jobs,
+                            dev.orchestrator.server.status.SubscriptionUsage subscription) {
         this.status = status;
         this.orchestration = orchestration;
         this.jobs = jobs;
+        this.subscription = subscription;
+    }
+
+    /**
+     * Refreshes the subscription windows on demand. The CLI only reports usage while it runs, so this
+     * makes the cheapest possible call (haiku, one turn, "OK") just to receive the rate_limit_event.
+     * Costs a few hundred tokens of the window it measures; never runs automatically.
+     */
+    @PostMapping("/usage-probe")
+    public Map<String, Object> usageProbe() {
+        dev.orchestrator.domain.AiModule module = orchestration.modules().get("claude");
+        if (module == null || !module.description().startsWith("cli")) {
+            throw new IllegalStateException("Claude CLI가 없거나 스텁 모드라 사용량을 조회할 수 없습니다.");
+        }
+        if (!probing.compareAndSet(false, true)) {
+            throw new IllegalStateException("이미 조회 중입니다.");
+        }
+        try {
+            dev.orchestrator.domain.RateLimitInfo[] seen = { null };
+            dev.orchestrator.domain.ExecutionContext ctx = new dev.orchestrator.domain.ExecutionContext() {
+                @Override public void detail(String line) { }
+                @Override public void summary(String line) { }
+                @Override public boolean isCancelled() { return false; }
+                @Override public java.time.Duration timeout() { return java.time.Duration.ofSeconds(90); }
+                @Override public java.time.Duration idleWarning() { return java.time.Duration.ofSeconds(60); }
+                @Override public dev.orchestrator.domain.AgentOptions options() { return new dev.orchestrator.domain.AgentOptions("haiku", "low"); }
+                @Override public java.nio.file.Path workingDirectory() { return orchestration.settings().workspace(); }
+                @Override public void rateLimit(dev.orchestrator.domain.RateLimitInfo info) { seen[0] = info; }
+            };
+            dev.orchestrator.domain.CompiledPrompt prompt = new dev.orchestrator.domain.CompiledPrompt(
+                    dev.orchestrator.domain.TaskType.CUSTOM, "usage", List.of(), "ko", "Reply with exactly: OK", null, false);
+            try {
+                module.execute(prompt, new dev.orchestrator.domain.ExecutionRequest("default", "usage", List.of(), "ko"), ctx);
+            } catch (dev.orchestrator.domain.ModuleExecutionException e) {
+                if (seen[0] == null) {
+                    throw new IllegalStateException("사용량 조회 호출이 실패했습니다: " + e.getMessage());
+                }
+            }
+            if (seen[0] == null) {
+                throw new IllegalStateException("CLI가 사용량 이벤트를 보내지 않았습니다 (Claude Code 2.x 필요).");
+            }
+            subscription.record(seen[0]);
+            return Map.of("subscription", seen[0]);
+        } finally {
+            probing.set(false);
+        }
     }
 
     /** Drops the cached probe (and rebuilds AUTO modules) so a fresh install or login shows up now, not in a minute. */

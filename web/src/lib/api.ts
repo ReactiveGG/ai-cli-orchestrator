@@ -1,5 +1,5 @@
 import type {
-  Catalog, DirListing, WorkspaceStatus, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
+  Catalog, DirListing, WorkspaceStatus, RateLimitInfo, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
 } from './types'
 import { mockApi, mockSubscribe } from './mock'
 import { humanize } from './errors'
@@ -56,6 +56,8 @@ async function request<T>(url: string, init?: RequestInit, retried = false): Pro
 const realApi = {
   dashboard: () => request<Dashboard>('/api/dashboard'),
   status: () => request<StatusReport>('/api/status'),
+  /** Fresh subscription windows: one minimal Claude call (haiku, 1 turn). Costs a little of the window it measures. */
+  probeUsage: () => request<{ subscription: RateLimitInfo }>('/api/status/usage-probe', { method: 'POST' }),
   /** Re-probe the CLIs now (after install/login) instead of waiting for the cache to expire. */
   refreshStatus: () => request<StatusReport>('/api/status/refresh', { method: 'POST' }),
   /** `claude auth logout` on the server's machine — logs every terminal on that PC out too. */

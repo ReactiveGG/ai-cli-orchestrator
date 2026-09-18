@@ -2,7 +2,7 @@
 // (see .env.mock). Same shapes as the real API; jobs run on a timer so the UI
 // shows progress, streaming logs and cancellation without any backend.
 import type {
-  DirListing, WorkspaceStatus,
+  DirListing, WorkspaceStatus, RateLimitInfo,
   AgentDto, Catalog, Dashboard, FlowConfig, FlowDto, FlowInfo, Job, JobEvent, JobRequest, JobStep, LogLevel, PlanStep, StageDto, Settings, StatusReport, TokenUsage,
 } from './types'
 
@@ -303,10 +303,11 @@ export const mockApi = {
     const last7Days = Array.from({ length: 7 }, (_, k) => { const i = 6 - k; const d = new Date(); d.setDate(d.getDate() - i); const t = i ? { inputTokens: hist[6 - i][0], outputTokens: hist[6 - i][1], costUsd: 0 } : sum(all); return { date: d.toISOString().slice(0, 10), inputTokens: t.inputTokens, outputTokens: t.outputTokens, costUsd: t.costUsd, jobs: i ? 3 : all.length } })
     const jobCounts = { QUEUED: 0, RUNNING: 0, SUCCEEDED: 0, FAILED: 0, CANCELLED: 0, TIMEOUT: 0 } as Dashboard['jobCounts']
     all.forEach((j) => { jobCounts[j.status]++ })
-    return delay({ usage: { today: sum(all.filter((j) => new Date(j.createdAt).toDateString() === today)), total: sum(all), byModule, last7Days }, status: status(), jobCounts, concurrency: CONCURRENCY, running: jobCounts.RUNNING, recentJobs: all.slice(0, 10), generatedAt: new Date().toISOString(), subscription: { status: 'allowed', fiveHourUtilization: 0.37, fiveHourResetsAt: new Date(Date.now() + 2.4 * 3600e3).toISOString(), sevenDayUtilization: 0.62, sevenDayResetsAt: new Date(Date.now() + 3 * 86400e3).toISOString(), rateLimitType: null, observedAt: new Date(Date.now() - 6 * 60e3).toISOString() } })
+    return delay({ usage: { today: sum(all.filter((j) => new Date(j.createdAt).toDateString() === today)), total: sum(all), byModule, last7Days }, status: status(), jobCounts, concurrency: CONCURRENCY, running: jobCounts.RUNNING, recentJobs: all.slice(0, 10), generatedAt: new Date().toISOString(), subscription: { status: 'allowed', fiveHourUtilization: 0.37, fiveHourResetsAt: new Date(Date.now() + 2.4 * 3600e3).toISOString(), sevenDayUtilization: 0.62, sevenDayResetsAt: new Date(Date.now() + 3 * 86400e3).toISOString(), rateLimitType: null, observedAt: new Date(Date.now() - 6 * 60e3).toISOString(), usingOverage: false } })
   },
   status: (): Promise<StatusReport> => delay(status()),
   refreshStatus: (): Promise<StatusReport> => delay(status()),
+  probeUsage: (): Promise<{ subscription: RateLimitInfo }> => delay({ subscription: { status: 'allowed', fiveHourUtilization: 0.41, fiveHourResetsAt: new Date(Date.now() + 2 * 3600e3).toISOString(), sevenDayUtilization: 0.63, sevenDayResetsAt: new Date(Date.now() + 3 * 86400e3).toISOString(), rateLimitType: null, observedAt: new Date().toISOString(), usingOverage: false } }),
   claudeLogout: (): Promise<{ loggedOut: boolean; exitCode: number; output: string }> => delay({ loggedOut: true, exitCode: 0, output: 'Logged out' }),
   claudeLogin: (): Promise<{ opened: boolean; command: string; terminal: string }> => delay({ opened: true, command: 'claude auth login', terminal: 'cmd.exe' }),
   catalog: (): Promise<Catalog> => delay({ flows: Object.entries(config.flows).map(([n, f]) => flowInfo(n, f)), options: OPTIONS, modules: MODULES.map((m) => ({ name: m.name, description: m.description, available: m.available })), roles: Object.entries(config.roles).map(([name, r]) => ({ name, label: r.label, instructions: r.instructions })), commands: SLASH_COMMANDS }),
