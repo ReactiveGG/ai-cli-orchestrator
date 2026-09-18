@@ -29,11 +29,14 @@ public class SubscriptionUsage {
 
     private final Path file;
     private volatile RateLimitInfo latest;
+    private volatile java.util.function.Consumer<RateLimitInfo> onChange = info -> { };
 
     @org.springframework.beans.factory.annotation.Autowired
     public SubscriptionUsage(OrchestratorProperties properties, JobService jobs) {
         this(properties.dataDir().resolve("subscription-usage.json"));
         jobs.setRateLimitListener(this::record);
+        // push every report to open dashboards so the tile moves during a run, like the token counters
+        this.onChange = info -> jobs.broadcast("subscription", info);
     }
 
     SubscriptionUsage(Path file) {
@@ -50,6 +53,7 @@ public class SubscriptionUsage {
             return;
         }
         latest = info;
+        onChange.accept(info);
         try {
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling(file.getFileName() + ".tmp");

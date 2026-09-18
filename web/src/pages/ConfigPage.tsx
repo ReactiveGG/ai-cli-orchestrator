@@ -183,10 +183,13 @@ export function ConfigPage() {
               </details>
               <p className="mt-2 text-xs text-slate-500">단계는 고정입니다. 칸에 모델을 더 놓을수록 그 단계가 병렬로 돌고, 다음 단계는 결과를 전부 받습니다. 칩마다 사용 모델(fable/opus/sonnet…)과 에포트, 슬래시 명령을 정할 수 있고, 비우면 CLI 기본값입니다. `/plan`은 대화형의 /plan처럼 계획 전용 모드로 돌고, 코더에 주면 계획(plan 모드) → 같은 세션 이어받아 구현(acceptEdits) 두 번으로 실행합니다. `/resume 세션id`·`/continue`는 그 세션을 이어받고(세션 id는 요약 로그에 남음), `/review` 같은 이름은 프롬프트 첫 줄에 들어가 작업 공간의 `.claude/commands`·스킬을 실행합니다.</p>
 
-              <div className="mt-4">
-                <div className="mb-1 text-xs text-slate-500">실행 흐름 미리보기</div>
-                <FlowDiagram steps={plan} height={Math.max(220, Math.min(520, 130 + 90 * Math.max(1, ...preset.stages.map((s) => Math.max(1, s.models.length)))))} />
-              </div>
+            </div>
+          )}
+
+          {preset && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-2 flex items-center gap-2"><div className="text-sm font-semibold">실행 흐름 미리보기</div><span className="text-xs text-slate-500">이 프리셋으로 실행하면 만들어지는 단계 그래프. 열이 단계, 행이 병렬 에이전트</span></div>
+              <FlowDiagram steps={plan} height={Math.max(220, Math.min(520, 130 + 90 * Math.max(1, ...preset.stages.map((s) => Math.max(1, s.models.length)))))} />
             </div>
           )}
 
