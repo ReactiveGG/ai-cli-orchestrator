@@ -74,7 +74,7 @@ CI(GitHub Actions)는 push/PR마다 Ubuntu와 Windows에서 Java 테스트를, U
 
 ```bash
 ./gradlew :server:bootJar -PskipWeb          # web/dist가 있으면 함께 담긴다 (없으면 cd web && npm run build 먼저)
-java -jar server/build/libs/server-0.1.5.jar --orchestrator.workspace=/path/to/project
+java -jar server/build/libs/server-0.1.6.jar --orchestrator.workspace=/path/to/project
 ```
 
 jar 하나에 서버와 웹 UI가 들어 있어 JDK 21만 있는 PC에 복사해 바로 띄울 수 있다. 인자는 `run.sh`와 같다.
@@ -243,7 +243,7 @@ Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.l
 
 WSL 없이 Windows 네이티브로 돈다. 필요한 것: JDK 21, Git for Windows, `claude` CLI(npm으로 설치하면 `claude.cmd`), 웹 UI를 다시 빌드할 때만 Node 22.
 
-- `run.cmd`(또는 `gradlew.bat :server:bootRun -PskipWeb`)로 실행하고 http://localhost:47120 을 연다. 빌드한 jar는 `java -jar server\build\libs\server-0.1.5.jar`로 띄운다.
+- `run.cmd`(또는 `gradlew.bat :server:bootRun -PskipWeb`)로 실행하고 http://localhost:47120 을 연다. 빌드한 jar는 `java -jar server\build\libs\server-0.1.6.jar`로 띄운다.
 - npm이 설치한 `claude.cmd` 같은 배치 셈은 Java가 직접 실행하지 못하므로 서버가 PATHEXT로 실행 파일을 찾아 `cmd.exe /c`로 감싸 실행한다. 설정의 실행 파일에는 `claude`라고만 적으면 된다.
 - 경쟁 모드의 worktree에 `node_modules` 같은 ignore 디렉터리를 연결할 때 심볼릭 링크가 안 되면(개발자 모드 꺼짐) 디렉터리 정션(`mklink /J`)으로 대신 연결한다.
 - 데이터는 `%USERPROFILE%\.ai-orchestrator`에 쌓인다. API 토큰 파일은 NTFS 기본 ACL(사용자 프로필은 본인만 접근)을 따른다.
