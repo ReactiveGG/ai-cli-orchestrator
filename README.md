@@ -144,7 +144,7 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
 
 | 장치 | 동작 | 설정 |
 |---|---|---|
-| 모듈 타임아웃 | 초과하면 프로세스 트리를 강제 종료하고 Job을 `TIMEOUT`으로 표시 | `orchestrator.module-timeout` (기본 10m) |
+| 모듈 타임아웃 | 초과하면 프로세스 트리를 강제 종료하고 Job을 `TIMEOUT`으로 표시 | `orchestrator.module-timeout` (기본 25m) |
 | 유휴 경고 | 출력이 일정 시간 없으면 요약 로그와 작업 목록에 경고 표시 | `orchestrator.idle-warning` (기본 60s) |
 | 취소 | 대기 중이면 즉시 제거, 실행 중이면 서브프로세스 종료 | 웹 취소 버튼, `POST /api/jobs/{id}/cancel` |
 | 폴백 | 타임아웃 시 지정한 다른 모듈로 1회 재시도 | `fallback` (YAML 또는 구성 화면) |

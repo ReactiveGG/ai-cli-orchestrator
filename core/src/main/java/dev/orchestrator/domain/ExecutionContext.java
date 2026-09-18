@@ -52,7 +52,7 @@ public interface ExecutionContext {
 
             @Override
             public Duration timeout() {
-                return Duration.ofMinutes(10);
+                return Duration.ofMinutes(25);
             }
 
             @Override

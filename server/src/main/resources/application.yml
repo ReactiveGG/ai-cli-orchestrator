@@ -21,7 +21,7 @@ orchestrator:
   # Directory the AI CLIs run in (the code they may read/edit). Defaults to the server's cwd.
   # workspace: /path/to/your/project
   concurrency: 2
-  module-timeout: 10m
+  module-timeout: 25m     # per agent run; a real coder stage with tests took ~2 min, so 25m leaves room for slow models/large repos
   idle-warning: 60s
   modules:
     claude:

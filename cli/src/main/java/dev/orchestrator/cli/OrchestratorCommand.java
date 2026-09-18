@@ -50,7 +50,7 @@ public final class OrchestratorCommand implements Runnable {
                 new GitWorktreeIsolation(home.resolve("worktrees"), List.of("node_modules", ".venv", "venv", "target", "build", ".gradle")),
                 workspace, home.resolve("cli-runs"), true, false, 40_000);
         ExecutionManager executionManager = new ExecutionManager(
-                new PromptCompiler(), config, Duration.ofMinutes(10), Duration.ofSeconds(60), isolation, codex, claude);
+                new PromptCompiler(), config, Duration.ofMinutes(25), Duration.ofSeconds(60), isolation, codex, claude);
         return new OrchestratorCommand(executionManager);
     }
 

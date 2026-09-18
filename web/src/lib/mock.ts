@@ -271,7 +271,7 @@ setInterval(tick, 900)
 const delay = <T,>(v: T, ms = 60): Promise<T> => new Promise((res) => setTimeout(() => res(v), ms))
 let mockSettings: Settings = {
   dataDir: '~/.ai-orchestrator', routingFile: '~/.ai-orchestrator/orchestrator.yml', settingsFile: '~/.ai-orchestrator/settings.yml',
-  workspace: 'C:\\dev\\my-service', concurrency: CONCURRENCY, moduleTimeoutSeconds: 600, idleWarningSeconds: 60,
+  workspace: 'C:\\dev\\my-service', concurrency: CONCURRENCY, moduleTimeoutSeconds: 1500, idleWarningSeconds: 60,
   modules: {
     claude: { mode: 'AUTO', command: 'claude', model: null, maxBudgetUsd: 2, allowedTools: ['Bash(git status*)', 'Bash(git diff*)', 'Bash(python3 -m pytest*)', 'Bash(npm test*)'], extraArgs: [] },
     codex: { mode: 'AUTO', command: 'codex', model: null, maxBudgetUsd: null, allowedTools: [], extraArgs: [] },
