@@ -81,7 +81,13 @@ jar 하나에 서버와 웹 UI가 들어 있어 JDK 21만 있는 PC에 복사해
 
 ### Windows 앱으로 실행 (설치형, Java 불필요)
 
-GitHub Actions의 **Windows app (jpackage)** 잡이 비설치형 `AI-CLI-Orchestrator-windows-x64.zip`(약 60MB: 서버 jar 25MB + 필요한 모듈만 담은 Java 런타임)을 만든다. `v*` 태그를 푸시하면 GitHub 릴리스에 자동으로 붙는다. 풀어서 `AI CLI Orchestrator.exe`를 실행하면 된다. 설치형이 필요하면 Windows에서 `gradlew.bat :server:jpackage -PjpackageType=msi`(WiX 필요). 실행하면 서버가 뜨고 기본 브라우저에 http://localhost:47120 이 열리며, 트레이 아이콘의 "대시보드 열기 / 종료"로 다룬다. 이미 떠 있는데 아이콘을 또 누르면 브라우저만 다시 연다. 서버 로그는 `%USERPROFILE%\.ai-orchestrator\server.log`에 쌓인다. 직접 만들려면 Windows에서 `gradlew.bat :server:jpackage`(zip용 앱 폴더) 또는 `-PjpackageType=msi`.
+GitHub Actions의 **Windows app (jpackage)** 잡이 비설치형 `AI-CLI-Orchestrator-windows-x64.zip`(약 60MB: 서버 jar 25MB + 필요한 모듈만 담은 Java 런타임)을 만든다. `v*` 태그를 푸시하면 GitHub 릴리스에 자동으로 붙는다. 풀어서 `AI CLI Orchestrator.exe`를 실행하면 된다. 설치형이 필요하면 Windows에서 `gradlew.bat :server:jpackage -PjpackageType=msi`(WiX 필요).
+
+**"Windows의 PC 보호" 경고가 뜰 때**: 실행 파일에 코드 서명이 없어서 SmartScreen이 인터넷에서 받은 파일에 띄우는 경고다. 다음 중 하나로 넘어간다.
+- 경고 창에서 **추가 정보 → 실행**. 한 번 허용하면 그 파일은 다시 묻지 않는다.
+- zip을 풀기 **전에** 차단 해제: zip 파일 우클릭 → 속성 → 아래쪽 **"차단 해제"** 체크 → 확인. 그다음 풀면 exe에 "인터넷에서 받음" 표시가 붙지 않아 경고가 나오지 않는다. PowerShell로는 `Unblock-File .\AI-CLI-Orchestrator-windows-x64.zip`.
+- 이미 풀었다면 폴더 전체를 `Get-ChildItem -Recurse "AI CLI Orchestrator" | Unblock-File`.
+경고를 근본적으로 없애려면 코드 서명 인증서가 필요하다(CI에 `signtool` 단계를 붙이면 된다). 실행하면 서버가 뜨고 기본 브라우저에 http://localhost:47120 이 열리며, 트레이 아이콘의 "대시보드 열기 / 종료"로 다룬다. 이미 떠 있는데 아이콘을 또 누르면 브라우저만 다시 연다. 서버 로그는 `%USERPROFILE%\.ai-orchestrator\server.log`에 쌓인다. 직접 만들려면 Windows에서 `gradlew.bat :server:jpackage`(zip용 앱 폴더) 또는 `-PjpackageType=msi`.
 
 ### IntelliJ에서 실행
 
