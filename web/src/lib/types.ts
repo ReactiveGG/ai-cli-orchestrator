@@ -93,6 +93,10 @@ export interface ModuleStatus {
   /** `claude auth status` result; null when unknown (stub, codex, probe failed) */
   loggedIn: boolean | null
   authMethod: string | null
+  /** resolved executable path, null when not found */
+  command: string | null
+  /** where the server looked when the CLI was not found */
+  searched: string | null
 }
 
 export interface RemoteStatus {

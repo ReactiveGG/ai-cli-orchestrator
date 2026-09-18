@@ -110,6 +110,25 @@ class ProcessRunnerTest {
     }
 
     @Test
+    void findsBinariesInInstallerDirsAndLaunchesThemByAbsolutePath(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
+        // a binary that is NOT on PATH but sits in a directory we search
+        java.nio.file.Path bin = java.nio.file.Files.createDirectories(dir.resolve("bin"));
+        java.nio.file.Path tool = bin.resolve(WINDOWS ? "mytool.cmd" : "mytool");
+        java.nio.file.Files.writeString(tool, WINDOWS ? "@echo off\r\n" : "#!/bin/sh\n");
+        tool.toFile().setExecutable(true);
+        java.util.List<String> exts = WINDOWS ? java.util.List.of("", ".cmd") : java.util.List.of("");
+
+        assertTrue(ProcessRunner.resolveExecutable("mytool", "", exts).isEmpty(), "not on (empty) PATH");
+        assertEquals(tool, ProcessRunner.resolveExecutable("mytool", bin.toString(), exts).orElseThrow(), "found in the searched dir");
+
+        java.util.function.Function<String, java.util.Optional<java.nio.file.Path>> resolver = name -> "mytool".equals(name) ? java.util.Optional.of(tool) : java.util.Optional.empty();
+        java.util.List<String> unix = ProcessRunner.launchCommand(java.util.List.of("mytool", "--version"), false, resolver);
+        assertEquals(java.util.List.of(tool.toString(), "--version"), unix, "absolute path so the OS needs no PATH lookup");
+        assertEquals(java.util.List.of("./x", "1"), ProcessRunner.launchCommand(java.util.List.of("./x", "1"), false, resolver), "explicit paths untouched");
+        assertTrue(ProcessRunner.wellKnownBinDirs().stream().anyMatch(d -> d.endsWith(".local" + java.io.File.separator + "bin")), "native installer dir is searched");
+    }
+
+    @Test
     void wrapsWindowsCmdShimsInCmdExe(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
         java.nio.file.Path shim = java.nio.file.Files.writeString(dir.resolve("claude.cmd"), "@echo off\r\n");
         java.nio.file.Path exe = java.nio.file.Files.writeString(dir.resolve("git.exe"), "");
@@ -120,7 +139,7 @@ class ProcessRunnerTest {
                 ProcessRunner.launchCommand(List.of("claude", "-p", "--verbose"), true, resolver));
         assertEquals(List.of(exe.toString(), "status"), ProcessRunner.launchCommand(List.of("git", "status"), true, resolver), ".exe runs directly");
         assertEquals(List.of("unknown", "x"), ProcessRunner.launchCommand(List.of("unknown", "x"), true, resolver), "unresolved names are passed through");
-        assertEquals(List.of("claude", "-p"), ProcessRunner.launchCommand(List.of("claude", "-p"), false, resolver), "no wrapping outside Windows");
+        assertEquals(List.of(shim.toString(), "-p"), ProcessRunner.launchCommand(List.of("claude", "-p"), false, resolver), "outside Windows: no cmd.exe wrapper, but the resolved absolute path (installer dirs are not on PATH)");
 
         // PATH resolution with Windows-style extensions (execute bit only exists on POSIX)
         try {

@@ -146,7 +146,49 @@ public final class ProcessRunner {
      * are tried, so npm shims such as {@code claude.cmd} are found.
      */
     public static java.util.Optional<Path> resolveExecutable(String executable) {
-        return resolveExecutable(executable, System.getenv("PATH"), isWindows() ? windowsExtensions() : List.of(""));
+        List<String> exts = isWindows() ? windowsExtensions() : List.of("");
+        java.util.Optional<Path> onPath = resolveExecutable(executable, System.getenv("PATH"), exts);
+        if (onPath.isPresent()) {
+            return onPath;
+        }
+        // A double-clicked app or a service does not always see the PATH the user's terminal has,
+        // so also look where the Claude/Codex installers and npm put their binaries.
+        return resolveExecutable(executable, String.join(java.io.File.pathSeparator, wellKnownBinDirs()), exts);
+    }
+
+    /** Directories the CLI installers use, most likely first; also the "searched" list shown when nothing is found. */
+    public static List<String> wellKnownBinDirs() {
+        List<String> dirs = new ArrayList<>();
+        String home = System.getProperty("user.home", "");
+        if (isWindows()) {
+            String appData = System.getenv("APPDATA");
+            String localAppData = System.getenv("LOCALAPPDATA");
+            String programFiles = System.getenv("ProgramFiles");
+            dirs.add(home + "\\.local\\bin");                       // native installer
+            if (appData != null) dirs.add(appData + "\\npm");        // npm -g
+            if (localAppData != null) {
+                dirs.add(localAppData + "\\Programs\\claude");
+                dirs.add(localAppData + "\\Programs\\Claude Code");
+                dirs.add(localAppData + "\\Programs\\nodejs");
+            }
+            if (programFiles != null) dirs.add(programFiles + "\\nodejs");
+        } else {
+            dirs.add(home + "/.local/bin");                          // native installer
+            dirs.add("/usr/local/bin");
+            dirs.add("/opt/homebrew/bin");
+            dirs.add(home + "/.npm-global/bin");
+            dirs.add(home + "/.volta/bin");
+            dirs.add("/usr/bin");
+            Path nvm = Path.of(home, ".nvm", "versions", "node");
+            if (Files.isDirectory(nvm)) {
+                try (java.util.stream.Stream<Path> versions = Files.list(nvm)) {
+                    versions.sorted(java.util.Comparator.reverseOrder()).limit(3).forEach(v -> dirs.add(v.resolve("bin").toString()));
+                } catch (java.io.IOException ignored) {
+                    // skip
+                }
+            }
+        }
+        return dirs;
     }
 
     public static java.util.Optional<Path> resolveExecutable(String executable, String pathEnv, List<String> extensions) {
@@ -205,13 +247,24 @@ public final class ProcessRunner {
     }
 
     public static List<String> launchCommand(List<String> command, boolean windows, java.util.function.Function<String, java.util.Optional<Path>> resolver) {
-        if (!windows || command.isEmpty()) {
+        if (command.isEmpty()) {
             return command;
+        }
+        if (!windows) {
+            Path found = resolver.apply(command.get(0)).orElse(null);
+            if (found == null || command.get(0).contains("/")) {
+                return command;
+            }
+            List<String> launch = new ArrayList<>();
+            launch.add(found.toString());
+            launch.addAll(command.subList(1, command.size()));
+            return launch;
         }
         Path resolved = resolver.apply(command.get(0)).orElse(null);
         if (resolved == null) {
             return command;
         }
+        // Always hand the OS the resolved absolute path: a binary found in a well-known dir is not on PATH.
         String name = resolved.getFileName().toString().toLowerCase(Locale.ROOT);
         List<String> launch = new ArrayList<>();
         if (name.endsWith(".cmd") || name.endsWith(".bat")) {

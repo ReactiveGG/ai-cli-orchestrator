@@ -30,7 +30,11 @@ public class ClaudeStatusService {
      * @param loggedIn   {@code claude auth status} result: true/false, or null when unknown (stub, codex, probe failed)
      * @param authMethod e.g. {@code claude.ai} or {@code console}, when logged in
      */
-    public record ModuleStatus(String name, String description, boolean available, String version, String mode, Boolean loggedIn, String authMethod) {
+    /**
+     * @param command  the executable actually found (absolute path), null when not found
+     * @param searched where we looked when nothing was found (PATH + installer locations), null when found
+     */
+    public record ModuleStatus(String name, String description, boolean available, String version, String mode, Boolean loggedIn, String authMethod, String command, String searched) {
     }
 
     public record RemoteStatus(String indicator, String description, Instant checkedAt) {
@@ -50,6 +54,13 @@ public class ClaudeStatusService {
     public ClaudeStatusService(OrchestrationService orchestration, OrchestratorProperties properties) {
         this.orchestration = orchestration;
         this.properties = properties;
+    }
+
+    /** Forget the cached report so the next call probes again (after the user logged in or installed the CLI). */
+    public void invalidate() {
+        cachedAt = Instant.EPOCH;
+        versionCache.clear();
+        orchestration.refreshModules();
     }
 
     public StatusReport report() {
@@ -78,8 +89,11 @@ public class ClaudeStatusService {
         String mode = module.description().startsWith("cli") ? "cli" : "stub";
         String version = "cli".equals(mode) && available ? versionCache.computeIfAbsent(command, this::probeVersion) : null;
         AuthStatus auth = "cli".equals(mode) && available && "claude".equals(module.name()) ? probeAuth(command) : null;
+        java.util.Optional<java.nio.file.Path> resolved = ProcessRunner.resolveExecutable(command);
+        String searched = resolved.isPresent() ? null : "PATH, " + String.join(", ", ProcessRunner.wellKnownBinDirs());
         return new ModuleStatus(module.name(), module.description(), available, version, mode,
-                auth == null ? null : auth.loggedIn(), auth == null ? null : auth.authMethod());
+                auth == null ? null : auth.loggedIn(), auth == null ? null : auth.authMethod(),
+                resolved.map(java.nio.file.Path::toString).orElse(null), searched);
     }
 
     public record AuthStatus(Boolean loggedIn, String authMethod) {

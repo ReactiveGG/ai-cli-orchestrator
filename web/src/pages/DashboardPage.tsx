@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { TokenChart } from '../components/TokenChart'
 import { api } from '../lib/api'
@@ -6,6 +7,8 @@ import type { Job, RateLimitInfo } from '../lib/types'
 import { StatTile } from '../components/StatTile'
 import { formatCost, formatTime, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { LogIn, RefreshCw as Recheck, Settings2 } from 'lucide-react'
 import { ErrorBox } from '../components/Feedback'
 import { errorMessage } from '../lib/errors'
 
@@ -43,7 +46,10 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
         hint={
           <>
             {claude?.version && <div>{claude.version}{claude.loggedIn === true && claude.authMethod ? ` · 로그인: ${claude.authMethod}` : ''}</div>}
-            {claude?.loggedIn === false && <div className="text-rose-600 dark:text-rose-300">터미널에서 <span className="mono">claude</span> 실행 후 /login 하면 작업을 실행할 수 있습니다</div>}
+            {claude && !claude.available && <div className="text-rose-600 dark:text-rose-300">Claude Code CLI를 찾지 못해 스텁으로 돕니다(실제 호출 없음). 설치돼 있다면 아래 "다시 확인"을 누르거나 구성 탭의 서버 설정 "실행 파일"에 경로를 넣으세요.{claude.searched && <div className="mt-0.5 break-all text-[11px] text-slate-400">찾아본 곳: {claude.searched}</div>}</div>}
+            {claude?.available && claude.command && <div className="mono break-all text-[11px] text-slate-400">{claude.command}</div>}
+            {claude?.loggedIn === false && <div className="text-rose-600 dark:text-rose-300">로그인이 안 돼 있어 작업이 실패합니다. "로그인 창 열기"를 누르면 이 PC에 터미널이 뜨고 브라우저 로그인으로 이어집니다.</div>}
+            {claude && (!claude.available || claude.loggedIn === false || claude.mode === 'cli') && <ClaudeActions showLogin={claude.available && claude.loggedIn !== true} onDone={() => dash.refetch()} />}
             {remote && <div>Anthropic: {remote.description || remote.indicator}</div>}
             {codex && <div>codex: {codex.available ? (codex.mode === 'cli' ? 'CLI 사용 가능' : '스텁') : '설치 안 됨'}</div>}
           </>
@@ -111,6 +117,31 @@ function Meter({ label, value, resetsAt, now }: { label: string; value: number |
       <div className="mt-0.5 h-1.5 overflow-hidden rounded bg-slate-200 dark:bg-slate-700" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${label} 사용률`}>
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
+    </div>
+  )
+}
+
+/** Buttons under the Claude tile: open a login terminal, re-probe now, jump to the executable setting. */
+function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () => void }) {
+  const qc = useQueryClient()
+  const [note, setNote] = useState<string | null>(null)
+  const login = useMutation({
+    mutationFn: api.claudeLogin,
+    onSuccess: (r) => setNote(`터미널을 열었습니다 (${r.command}). 로그인을 마친 뒤 "다시 확인"을 누르세요.`),
+    onError: (e) => setNote(errorMessage(e)),
+  })
+  const refresh = useMutation({
+    mutationFn: api.refreshStatus,
+    onSuccess: (r) => { const c = r.modules.find((m) => m.name === 'claude'); setNote(c?.available ? (c.loggedIn === false ? '아직 로그인되지 않았습니다.' : `확인됨: ${c.version ?? 'CLI'}${c.loggedIn ? ' · 로그인됨' : ''}`) : '여전히 CLI를 찾지 못했습니다.'); qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); onDone() },
+    onError: (e) => setNote(errorMessage(e)),
+  })
+  const btn = 'inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending} className={btn}><LogIn size={12} /> 로그인 창 열기</button>}
+      <button onClick={() => refresh.mutate()} disabled={refresh.isPending} className={btn}><Recheck size={12} className={refresh.isPending ? 'animate-spin' : ''} /> 다시 확인</button>
+      <a href="#config-settings" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
+      {note && <span className="w-full text-[11px] text-slate-500">{note}</span>}
     </div>
   )
 }

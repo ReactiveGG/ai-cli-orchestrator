@@ -53,6 +53,10 @@ async function request<T>(url: string, init?: RequestInit, retried = false): Pro
 const realApi = {
   dashboard: () => request<Dashboard>('/api/dashboard'),
   status: () => request<StatusReport>('/api/status'),
+  /** Re-probe the CLIs now (after install/login) instead of waiting for the cache to expire. */
+  refreshStatus: () => request<StatusReport>('/api/status/refresh', { method: 'POST' }),
+  /** Opens a terminal on the server's machine running `claude auth login`. */
+  claudeLogin: () => request<{ opened: boolean; command: string; terminal: string }>('/api/status/login', { method: 'POST' }),
   catalog: () => request<Catalog>('/api/catalog'),
   jobs: () => request<Job[]>('/api/jobs'),
   job: (id: string) => request<Job>(`/api/jobs/${id}`),

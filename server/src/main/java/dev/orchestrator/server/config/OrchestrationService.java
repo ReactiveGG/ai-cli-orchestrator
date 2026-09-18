@@ -63,6 +63,11 @@ public class OrchestrationService {
         return settings;
     }
 
+    /** Re-creates the modules so AUTO mode notices a CLI that was installed after startup. */
+    public synchronized void refreshModules() {
+        reload(manager.get().config());
+    }
+
     public synchronized void reload(FlowConfig config) {
         config.validate();
         AiModule[] modules = MODULE_NAMES.stream().map(this::createModule).toArray(AiModule[]::new);
