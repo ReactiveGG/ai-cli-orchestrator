@@ -171,6 +171,9 @@ class JobServiceTest {
                 Thread.sleep(20);
             }
             assertEquals(List.of(c, b), keepTwo.list().stream().map(JobSnapshot::id).toList(), "oldest finished job pruned after c finished");
+            for (int i = 0; i < 50 && Files.exists(tempDir.resolve("jobs").resolve(a)); i++) {
+                Thread.sleep(40);   // Windows: deletion can lag behind the map update
+            }
             assertFalse(Files.exists(tempDir.resolve("jobs").resolve(a)), "its directory is gone");
             assertTrue(Files.exists(tempDir.resolve("jobs").resolve(c)));
             assertEquals(0, keepTwo.prune(), "nothing more to prune");

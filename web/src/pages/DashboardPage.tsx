@@ -8,7 +8,7 @@ import { StatTile } from '../components/StatTile'
 import { formatCost, formatTime, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogIn, RefreshCw as Recheck, Settings2 } from 'lucide-react'
+import { LogIn, LogOut, RefreshCw as Recheck, Settings2 } from 'lucide-react'
 import { ErrorBox } from '../components/Feedback'
 import { errorMessage } from '../lib/errors'
 
@@ -49,7 +49,7 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
             {claude && !claude.available && <div className="text-rose-600 dark:text-rose-300">Claude Code CLI를 찾지 못해 스텁으로 돕니다(실제 호출 없음). 설치돼 있다면 아래 "다시 확인"을 누르거나 구성 탭의 서버 설정 "실행 파일"에 경로를 넣으세요.{claude.searched && <div className="mt-0.5 break-all text-[11px] text-slate-400">찾아본 곳: {claude.searched}</div>}</div>}
             {claude?.available && claude.command && <div className="mono break-all text-[11px] text-slate-400">{claude.command}</div>}
             {claude?.loggedIn === false && <div className="text-rose-600 dark:text-rose-300">로그인이 안 돼 있어 작업이 실패합니다. "로그인 창 열기"를 누르면 이 PC에 터미널이 뜨고 브라우저 로그인으로 이어집니다.</div>}
-            {claude && (!claude.available || claude.loggedIn === false || claude.mode === 'cli') && <ClaudeActions showLogin={claude.available && claude.loggedIn !== true} onDone={() => dash.refetch()} />}
+            {claude && (!claude.available || claude.mode === 'cli') && <ClaudeActions showLogin={claude.available && claude.loggedIn !== true} showLogout={claude.available && claude.loggedIn === true} onDone={() => dash.refetch()} />}
             {remote && <div>Anthropic: {remote.description || remote.indicator}</div>}
             {codex && <div>codex: {codex.available ? (codex.mode === 'cli' ? 'CLI 사용 가능' : '스텁') : '설치 안 됨'}</div>}
           </>
@@ -122,7 +122,7 @@ function Meter({ label, value, resetsAt, now }: { label: string; value: number |
 }
 
 /** Buttons under the Claude tile: open a login terminal, re-probe now, jump to the executable setting. */
-function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () => void }) {
+function ClaudeActions({ showLogin, showLogout, onDone }: { showLogin: boolean; showLogout: boolean; onDone: () => void }) {
   const qc = useQueryClient()
   const [note, setNote] = useState<string | null>(null)
   const [waiting, setWaiting] = useState(false)
@@ -147,6 +147,14 @@ function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () =
     }, 3000)
     return () => window.clearInterval(timer)
   }, [waiting, qc])
+  const logout = useMutation({
+    mutationFn: api.claudeLogout,
+    onSuccess: (r) => { setNote(r.loggedOut ? '로그아웃했습니다. 이 PC의 터미널 Claude Code도 다시 로그인해야 합니다.' : `로그아웃 명령은 끝났지만 아직 로그인 상태로 보입니다: ${r.output}`); qc.invalidateQueries({ queryKey: ['dashboard'] }); onDoneRef.current() },
+    onError: (e) => setNote(errorMessage(e)),
+  })
+  const confirmLogout = () => {
+    if (window.confirm('Claude 로그인을 해제합니다.\n\n이 로그인은 Claude Code CLI의 것이라, 이 PC의 터미널에서 쓰는 claude도 함께 로그아웃되고 다시 /login 해야 합니다.\n\n계속할까요?')) logout.mutate()
+  }
   const refresh = useMutation({
     mutationFn: api.refreshStatus,
     onSuccess: (r) => { const c = r.modules.find((m) => m.name === 'claude'); setNote(c?.available ? (c.loggedIn === false ? '아직 로그인되지 않았습니다.' : `확인됨: ${c.version ?? 'CLI'}${c.loggedIn ? ' · 로그인됨' : ''}`) : '여전히 CLI를 찾지 못했습니다.'); qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); onDone() },
@@ -156,6 +164,7 @@ function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () =
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
       {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending || waiting} className={btn}><LogIn size={12} className={waiting ? 'animate-pulse' : ''} /> {waiting ? '로그인 대기 중…' : '로그인 창 열기'}</button>}
+      {showLogout && <button onClick={confirmLogout} disabled={logout.isPending} className={btn}><LogOut size={12} /> {logout.isPending ? '로그아웃 중…' : '로그아웃'}</button>}
       <button onClick={() => refresh.mutate()} disabled={refresh.isPending} className={btn}><Recheck size={12} className={refresh.isPending ? 'animate-spin' : ''} /> 다시 확인</button>
       <a href="#config-settings" onClick={(e) => { if (window.location.hash === '#config-settings') { e.preventDefault(); window.dispatchEvent(new HashChangeEvent('hashchange')) } }} title="구성 탭의 서버 설정으로 이동해 claude 실행 파일 경로를 직접 입력" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
       {note && <span className="w-full text-[11px] text-slate-500">{note}</span>}

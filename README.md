@@ -74,7 +74,7 @@ CI(GitHub Actions)는 push/PR마다 Ubuntu와 Windows에서 Java 테스트를, U
 
 ```bash
 ./gradlew :server:bootJar -PskipWeb          # web/dist가 있으면 함께 담긴다 (없으면 cd web && npm run build 먼저)
-java -jar server/build/libs/server-0.1.3.jar --orchestrator.workspace=/path/to/project
+java -jar server/build/libs/server-0.1.4.jar --orchestrator.workspace=/path/to/project
 ```
 
 jar 하나에 서버와 웹 UI가 들어 있어 JDK 21만 있는 PC에 복사해 바로 띄울 수 있다. 인자는 `run.sh`와 같다.
@@ -103,7 +103,7 @@ GitHub Actions의 **Windows app (jpackage)** 잡이 비설치형 `AI-CLI-Orchest
 
 인터랙티브 프로토타입(가짜 데이터, 서버 불필요)은 `web/src/lib/mock.ts`가 제공하는 mock 모드와 같은 동작을 한다. 화면 구성과 드래그 앤 드롭을 먼저 검토할 때 `npm run dev:mock`을 쓴다.
 
-- **대시보드**: 오늘/누적 토큰 사용량과 비용, 모듈별 사용량, 최근 7일 차트, Claude CLI 설치·버전·로그인 상태(`claude auth status`; 못 찾으면 찾아본 위치와 "다시 확인"·"실행 파일 설정", 로그인 안 됐으면 "로그인 창 열기" 버튼), 구독 사용량(마지막 Claude 실행이 보고한 5시간·7일 창 사용률과 초기화 시각), Anthropic 상태 페이지, 작업 진행 현황.
+- **대시보드**: 오늘/누적 토큰 사용량과 비용, 모듈별 사용량, 최근 7일 차트, Claude CLI 설치·버전·로그인 상태(`claude auth status`; 못 찾으면 찾아본 위치와 "다시 확인"·"실행 파일 설정", 로그인 안 됐으면 "로그인 창 열기", 로그인돼 있으면 "로그아웃" 버튼 — 이 PC의 터미널 claude도 함께 해제됨을 확인 창으로 안내), 구독 사용량(마지막 Claude 실행이 보고한 5시간·7일 창 사용률과 초기화 시각), Anthropic 상태 페이지, 작업 진행 현황.
 - **명령창 (Ctrl+K)**: 프리셋 칩(1-1-1-1, 1-1-2-1, 1-3-3-1 …)을 고르고 대상만 입력한다 (`"jwt refresh" --focus security`). 줄마다 `--preset name`으로 따로 지정할 수도 있다. 한 줄이 Job 하나이고, Shift+Enter로 줄을 추가하면 여러 Job이 한 번에 큐에 들어간다. 실행 전 다이어그램 미리보기를 보여준다.
 - **작업**: Job마다 프로세스 플로우 다이어그램(단계가 열, 병렬 에이전트가 행), **요약 로그**와 **상세 로그** 두 탭, 최종 결과.
 - **상태 표시**: 헤더의 점이 SSE 연결 상태다(연결 중 / 실시간 연결 / 서버 연결 끊김). 서버는 15초마다 `ping` 이벤트를 보내고, 브라우저는 40초 동안 아무 프레임도 없으면 스트림을 끊긴 것으로 보고 다시 연다. 서버가 죽으면 상단에 배너가 뜨고, 다시 켜면 몇 초 안에 자동으로 복구된다. 목록·대시보드·구성 로딩 실패는 각 영역에 "다시 시도" 버튼과 함께 표시되고, 알 수 없는 프리셋·옵션 같은 입력 오류는 명령창 하단에 한국어로 나온다.
@@ -243,7 +243,7 @@ Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.l
 
 WSL 없이 Windows 네이티브로 돈다. 필요한 것: JDK 21, Git for Windows, `claude` CLI(npm으로 설치하면 `claude.cmd`), 웹 UI를 다시 빌드할 때만 Node 22.
 
-- `run.cmd`(또는 `gradlew.bat :server:bootRun -PskipWeb`)로 실행하고 http://localhost:47120 을 연다. 빌드한 jar는 `java -jar server\build\libs\server-0.1.3.jar`로 띄운다.
+- `run.cmd`(또는 `gradlew.bat :server:bootRun -PskipWeb`)로 실행하고 http://localhost:47120 을 연다. 빌드한 jar는 `java -jar server\build\libs\server-0.1.4.jar`로 띄운다.
 - npm이 설치한 `claude.cmd` 같은 배치 셈은 Java가 직접 실행하지 못하므로 서버가 PATHEXT로 실행 파일을 찾아 `cmd.exe /c`로 감싸 실행한다. 설정의 실행 파일에는 `claude`라고만 적으면 된다.
 - 경쟁 모드의 worktree에 `node_modules` 같은 ignore 디렉터리를 연결할 때 심볼릭 링크가 안 되면(개발자 모드 꺼짐) 디렉터리 정션(`mklink /J`)으로 대신 연결한다.
 - 데이터는 `%USERPROFILE%\.ai-orchestrator`에 쌓인다. API 토큰 파일은 NTFS 기본 ACL(사용자 프로필은 본인만 접근)을 따른다.

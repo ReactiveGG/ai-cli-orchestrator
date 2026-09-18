@@ -158,14 +158,35 @@ public final class JobStore {
         if (!Files.isDirectory(dir)) {
             return;
         }
-        try (Stream<Path> paths = Files.walk(dir)) {
-            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (IOException e) {
-                    throw new java.io.UncheckedIOException(e);
-                }
-            });
+        // Windows may keep a just-closed log briefly locked (indexer, antivirus): retry a few times.
+        IOException last = null;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            try (Stream<Path> paths = Files.walk(dir)) {
+                paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                    try {
+                        Files.deleteIfExists(path);
+                    } catch (IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                });
+                return;
+            } catch (java.io.UncheckedIOException e) {
+                last = e.getCause();
+            } catch (IOException e) {
+                last = e;
+            }
+            if (!Files.exists(dir)) {
+                return;
+            }
+            try {
+                Thread.sleep(100L * (attempt + 1));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        if (Files.exists(dir) && last != null) {
+            throw last;
         }
     }
 
