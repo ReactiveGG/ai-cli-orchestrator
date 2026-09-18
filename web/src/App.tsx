@@ -49,7 +49,6 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(route.command)
   useEffect(() => { if (route.command) setPaletteOpen(true) }, [route.command])
   const [palettePreset, setPalettePreset] = useState<string | undefined>(undefined)
-  const openPaletteWith = useCallback((preset: string) => { setPalettePreset(preset); setPaletteOpen(true) }, [])
   const [jobs, setJobs] = useState<Job[]>([])
   const [conn, setConn] = useState<Conn>('connecting')
   const [notify, setNotify] = useState<NotifyState>(notifyState)
@@ -188,7 +187,7 @@ export default function App() {
         {view === 'jobs' && (
           <JobsPage jobs={jobs} loading={initial.isPending} filterable selectedId={selected} onSelect={setSelected} onCancel={(id) => cancel.mutate(id)} onDelete={(id) => remove.mutate(id)} />
         )}
-        {view === 'config' && <ConfigPage onRun={(preset) => openPaletteWith(preset)} />}
+        {view === 'config' && <ConfigPage />}
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
