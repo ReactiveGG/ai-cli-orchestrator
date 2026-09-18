@@ -70,6 +70,8 @@ export default function App() {
         jobs: (data) => { setJobs(data as Job[]); setConn('live'); qc.invalidateQueries({ queryKey: ['dashboard'] }) },
         // server pushes this when a login it opened completes (or the CLI state changes): refetch the tile, no reload
         status: () => { qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['catalog'] }) },
+        // a rate_limit_event arrived from a running CLI: refresh the subscription tile at once
+        subscription: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
         job: (data) => {
           const job = data as Job
           setJobs((prev) => {
