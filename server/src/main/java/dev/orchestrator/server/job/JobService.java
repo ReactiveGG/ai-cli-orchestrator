@@ -246,6 +246,18 @@ public class JobService {
         store.delete(id);
     }
 
+    private static CandidatePatch patchOf(int index, JobCandidate candidate) {
+        Path patchFile = Path.of(candidate.patchFile());
+        String patchText;
+        try {
+            patchText = Files.readString(patchFile);
+        } catch (IOException e) {
+            throw new IllegalStateException("patch 파일을 읽을 수 없습니다: " + patchFile);
+        }
+        return new CandidatePatch(index, "", "", candidate.stat(), patchText, patchFile,
+                candidate.filesChanged(), candidate.insertions(), candidate.deletions());
+    }
+
     /** Applies candidate {@code index}'s patch to the workspace by hand (also to override the verifier's choice). */
     public JobSnapshot applyCandidate(String id, int index) {
         Job job = job(id);
@@ -260,16 +272,20 @@ public class JobService {
         if (!settings.enabled()) {
             throw new IllegalStateException("작업 공간 격리가 꺼져 있어 적용할 수 없습니다");
         }
-        Path patchFile = Path.of(candidate.patchFile());
-        String patchText;
-        try {
-            patchText = Files.readString(patchFile);
-        } catch (IOException e) {
-            throw new IllegalStateException("patch 파일을 읽을 수 없습니다: " + patchFile);
+        JobSnapshot current = job.snapshot();
+        if (current.applied() && current.chosenCandidate() == index) {
+            throw new IllegalStateException("후보 " + index + "은(는) 이미 적용돼 있습니다");
         }
-        CandidatePatch patch = new CandidatePatch(index, "", "", candidate.stat(), patchText, patchFile,
-                candidate.filesChanged(), candidate.insertions(), candidate.deletions());
+        CandidatePatch patch = patchOf(index, candidate);
         try {
+            // Switching candidates: undo the one on disk first, otherwise the new patch fails with "already exists".
+            if (current.applied() && current.chosenCandidate() > 0) {
+                JobCandidate applied = job.candidate(current.chosenCandidate()).orElse(null);
+                if (applied != null && !applied.empty()) {
+                    settings.isolation().revert(patchOf(applied.index(), applied), settings.workspace());
+                    emit(job, JobEventLevel.SUMMARY, null, "후보 " + applied.index() + " 되돌림 (후보 " + index + "(으)로 교체)");
+                }
+            }
             settings.isolation().apply(patch, settings.workspace());
         } catch (IsolationException e) {
             throw new IllegalStateException(e.getMessage());

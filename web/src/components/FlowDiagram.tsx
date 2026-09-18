@@ -127,7 +127,7 @@ function layout(steps: FlowStep[]): { nodes: Node[]; edges: Edge[] } {
         data: {
           label: (
             <div className="relative text-center leading-tight">
-              {chosen && <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-1.5 text-[10px] font-semibold text-white shadow">✓ 채택</span>}
+              {chosen && <span className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-1.5 text-[10px] font-semibold text-white shadow">✓ 채택</span>}
               <div className="text-xs font-semibold">{step.label}</div>
               {sub && <div className="mt-0.5 text-[10px] opacity-75">{sub}</div>}
             </div>
@@ -137,7 +137,7 @@ function layout(steps: FlowStep[]): { nodes: Node[]; edges: Edge[] } {
         targetPosition: Position.Left,
         style: {
           background: tone.bg,
-          borderColor: chosen ? '#059669' : tone.border,
+          borderColor: chosen ? '#2563eb' : tone.border,   // blue: calmer than green next to the DONE tone
           color: tone.text,
           borderWidth: chosen ? 3 : status === 'RUNNING' ? 2 : 1,
           borderRadius: 10,
@@ -150,7 +150,7 @@ function layout(steps: FlowStep[]): { nodes: Node[]; edges: Edge[] } {
           justifyContent: 'center',
           opacity: rejected ? 0.45 : 1,
           overflow: 'visible',
-          boxShadow: chosen ? '0 0 0 4px rgba(5,150,105,0.25)' : status === 'RUNNING' ? `0 0 0 4px ${tone.bg}` : undefined,
+          boxShadow: chosen ? '0 0 0 4px rgba(37,99,235,0.22)' : status === 'RUNNING' ? `0 0 0 4px ${tone.bg}` : undefined,
         },
       })
     })
@@ -162,7 +162,7 @@ function layout(steps: FlowStep[]): { nodes: Node[]; edges: Edge[] } {
       target: step.id,
       animated: step.status === 'RUNNING',
       markerEnd: { type: MarkerType.ArrowClosed },
-      style: { stroke: step.outcome === 'chosen' || byId.get(from)?.outcome === 'chosen' ? '#059669' : '#94a3b8', strokeWidth: step.outcome === 'chosen' || byId.get(from)?.outcome === 'chosen' ? 2 : 1, opacity: step.outcome === 'rejected' || byId.get(from)?.outcome === 'rejected' ? 0.4 : 1 },
+      style: { stroke: step.outcome === 'chosen' || byId.get(from)?.outcome === 'chosen' ? '#2563eb' : '#94a3b8', strokeWidth: step.outcome === 'chosen' || byId.get(from)?.outcome === 'chosen' ? 2 : 1, opacity: step.outcome === 'rejected' || byId.get(from)?.outcome === 'rejected' ? 0.4 : 1 },
     })),
   )
   return { nodes, edges }
