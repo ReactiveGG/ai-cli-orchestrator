@@ -75,6 +75,8 @@ const realApi = {
   routingYaml: async () => { const t = await ensureToken(); return (await fetch('/api/config/routing.yaml', { headers: t ? { 'X-Orchestrator-Token': t } : {} })).text() },
   settings: () => request<Settings>('/api/config/settings'),
   saveSettings: (body: Settings) => request<Settings>('/api/config/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  /** Opens the OS folder dialog on the server's desktop; resolves to null when the user cancels. */
+  browseFolder: (initial: string) => request<{ path: string | null; backend: string }>('/api/config/settings/browse', { method: 'POST', body: JSON.stringify({ initial }) }),
 }
 
 export const api: typeof realApi = MOCK ? mockApi : realApi

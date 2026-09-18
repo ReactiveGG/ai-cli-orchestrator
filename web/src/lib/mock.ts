@@ -319,6 +319,7 @@ export const mockApi = {
     return y
   },
   settings: (): Promise<Settings> => delay(structuredClone(mockSettings)),
+  browseFolder: (initial: string): Promise<{ path: string | null; backend: string }> => delay({ path: initial ? initial.replace(/[\\/]+$/, '') + '\\picked-folder' : 'C:\\dev\\picked-folder', backend: 'MOCK' }),
   saveSettings: (body: Settings): Promise<Settings> => { mockSettings = structuredClone(body); return delay(structuredClone(mockSettings)) },
 }
 
