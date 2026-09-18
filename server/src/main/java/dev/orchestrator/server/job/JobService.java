@@ -134,6 +134,11 @@ public class JobService {
         this.rateLimitListener = listener == null ? info -> { } : listener;
     }
 
+    /** Pushes an event to every dashboard/list SSE subscriber. */
+    public void broadcast(String eventName, Object data) {
+        bus.publishGlobal(eventName, data);
+    }
+
     public int concurrency() {
         return concurrency;
     }

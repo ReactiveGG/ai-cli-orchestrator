@@ -57,6 +57,8 @@ export default function App() {
       '/api/events',
       {
         jobs: (data) => { setJobs(data as Job[]); setConn('live'); qc.invalidateQueries({ queryKey: ['dashboard'] }) },
+        // server pushes this when a login it opened completes (or the CLI state changes): refetch the tile, no reload
+        status: () => { qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['catalog'] }) },
         job: (data) => {
           const job = data as Job
           setJobs((prev) => {

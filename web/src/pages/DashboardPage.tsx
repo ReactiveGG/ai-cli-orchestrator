@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { TokenChart } from '../components/TokenChart'
 import { api } from '../lib/api'
@@ -125,11 +125,28 @@ function Meter({ label, value, resetsAt, now }: { label: string; value: number |
 function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () => void }) {
   const qc = useQueryClient()
   const [note, setNote] = useState<string | null>(null)
+  const [waiting, setWaiting] = useState(false)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
   const login = useMutation({
     mutationFn: api.claudeLogin,
-    onSuccess: (r) => setNote(`터미널을 열었습니다 (${r.command}). 로그인을 마친 뒤 "다시 확인"을 누르세요.`),
+    onSuccess: (r) => { setNote(`터미널을 열었습니다 (${r.command}). 로그인을 마치면 여기가 자동으로 바뀝니다.`); setWaiting(true) },
     onError: (e) => setNote(errorMessage(e)),
   })
+  // Belt and braces with the server's SSE push: poll the probe every 3s until the CLI reports a login (max 5 min).
+  useEffect(() => {
+    if (!waiting) return
+    const started = Date.now()
+    const timer = window.setInterval(async () => {
+      try {
+        const r = await api.refreshStatus()
+        const c = r.modules.find((m) => m.name === 'claude')
+        if (c?.loggedIn) { setWaiting(false); setNote(`로그인 확인됨 · ${c.authMethod ?? ''} ${c.version ?? ''}`.trim()); qc.invalidateQueries({ queryKey: ['dashboard'] }); onDoneRef.current() }
+        else if (Date.now() - started > 5 * 60_000) { setWaiting(false); setNote('5분 동안 로그인이 확인되지 않았습니다. 터미널을 확인한 뒤 "다시 확인"을 누르세요.') }
+      } catch { /* server hiccup: keep polling */ }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [waiting, qc])
   const refresh = useMutation({
     mutationFn: api.refreshStatus,
     onSuccess: (r) => { const c = r.modules.find((m) => m.name === 'claude'); setNote(c?.available ? (c.loggedIn === false ? '아직 로그인되지 않았습니다.' : `확인됨: ${c.version ?? 'CLI'}${c.loggedIn ? ' · 로그인됨' : ''}`) : '여전히 CLI를 찾지 못했습니다.'); qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); onDone() },
@@ -138,7 +155,7 @@ function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () =
   const btn = 'inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800'
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending} className={btn}><LogIn size={12} /> 로그인 창 열기</button>}
+      {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending || waiting} className={btn}><LogIn size={12} className={waiting ? 'animate-pulse' : ''} /> {waiting ? '로그인 대기 중…' : '로그인 창 열기'}</button>}
       <button onClick={() => refresh.mutate()} disabled={refresh.isPending} className={btn}><Recheck size={12} className={refresh.isPending ? 'animate-spin' : ''} /> 다시 확인</button>
       <a href="#config-settings" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
       {note && <span className="w-full text-[11px] text-slate-500">{note}</span>}
