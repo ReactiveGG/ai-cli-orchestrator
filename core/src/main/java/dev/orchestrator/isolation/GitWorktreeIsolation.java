@@ -264,6 +264,12 @@ public final class GitWorktreeIsolation implements WorkspaceIsolation {
         ProcessBuilder builder = new ProcessBuilder(command).directory(cwd.toFile()).redirectErrorStream(true);
         builder.environment().putAll(env);
         builder.environment().put("GIT_TERMINAL_PROMPT", "0");
+        // The base commit is internal (temp index, never pushed); do not require the user to have
+        // configured a git identity — a fresh Windows PC has none and commit-tree fails with "Author identity unknown".
+        builder.environment().putIfAbsent("GIT_AUTHOR_NAME", "AI CLI Orchestrator");
+        builder.environment().putIfAbsent("GIT_AUTHOR_EMAIL", "orchestrator@localhost");
+        builder.environment().putIfAbsent("GIT_COMMITTER_NAME", "AI CLI Orchestrator");
+        builder.environment().putIfAbsent("GIT_COMMITTER_EMAIL", "orchestrator@localhost");
         try {
             Process process = builder.start();
             process.getOutputStream().close();

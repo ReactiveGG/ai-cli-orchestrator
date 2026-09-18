@@ -47,7 +47,9 @@ export function ConfigPage() {
     if (routing.data && !cfg) { setCfg(normalize(routing.data)); setSelected(Object.keys(routing.data.flows)[0] ?? '') }
   }, [routing.data, cfg])
 
-  const modules = catalog.data?.modules.map((m) => m.name) ?? ['claude', 'codex']
+  // claude first everywhere (palette, "+ module" buttons, default-module select); codex after
+  const moduleRank = (name: string) => (name === 'claude' ? 0 : name === 'codex' ? 1 : 2)
+  const modules = useMemo(() => [...(catalog.data?.modules.map((m) => m.name) ?? ['claude', 'codex'])].sort((a, b) => moduleRank(a) - moduleRank(b) || a.localeCompare(b)), [catalog.data])
   const preset = cfg?.flows[selected]
 
   const adopt = (data: FlowConfig, msg: string) => {
