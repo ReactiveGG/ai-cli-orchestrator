@@ -43,7 +43,8 @@ class JobServiceTest {
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
                 new OrchestratorProperties.Isolation(true, List.of(), true, false, 40_000, List.of("__pycache__")),
                 new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null),
-                new OrchestratorProperties.Retention(200, Duration.ofDays(30)));
+                new OrchestratorProperties.Retention(200, Duration.ofDays(30)),
+                new OrchestratorProperties.Prompt(24_000, 60_000));
         orchestration = new OrchestrationService(properties);
         service = new JobService(orchestration, new JobStore(properties.jobsDir()), 1);
     }

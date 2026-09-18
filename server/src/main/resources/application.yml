@@ -63,6 +63,12 @@ orchestrator:
     max-patch-chars: 40000
     link-dirs: [node_modules, .venv, venv, target, build, .gradle]
     exclude: ["__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"]   # never captured into a candidate
+  # Earlier-stage text inlined into the next prompt is cut to these sizes (head 70% + tail 30% kept, a note goes
+  # to the summary log). The prompt is re-sent every agent turn, so long inherited text multiplies cost and can
+  # overflow the model context. ~3 chars per token: 60k chars ≈ 20k tokens ≈ 10% of a 200k context. 0 = unlimited.
+  prompt:
+    max-result-chars: 24000
+    max-total-chars: 60000
   # Finished jobs beyond these limits are deleted with their logs (newest kept). Running/queued jobs never are.
   retention:
     max-jobs: 200       # 0 = unlimited

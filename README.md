@@ -134,6 +134,12 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
   claude: codex
 ```
 
+## 프롬프트 길이 제한
+
+각 에이전트는 "역할 지시문 + 원래 요청 + 이전 단계 결과"를 받는다. 이전 단계 결과는 결과당 24,000자, 단계 합계 60,000자(약 20k 토큰, 200k 컨텍스트의 10% 이하)까지만 넣고, 넘치면 앞 70%와 뒤 30%를 남기고 가운데를 생략한다(결론은 보통 끝에 있으므로). 잘리면 요약 로그에 `이전 결과 '…' N자 → M자로 잘라 전달`이 남고, 전문은 작업 상세 로그에서 볼 수 있다. 경쟁 모드의 후보 diff는 별도로 `isolation.max-patch-chars`(40,000자)로 자른다.
+
+왜 필요한가: `claude -p`는 도구를 부르며 여러 턴을 돌고 프롬프트를 매 턴 다시 보내므로 물려받은 텍스트가 길수록 비용이 비례해 늘고, 파일 전체를 출력에 붙인 코더나 diff를 통째로 인용한 리뷰어 하나가 다음 에이전트의 컨텍스트를 넘치게 할 수 있다. 값은 `orchestrator.prompt.*`로 조정한다(0 = 무제한).
+
 ## 오래 걸리는 작업 대응
 
 | 장치 | 동작 | 설정 |
@@ -177,6 +183,7 @@ fallback:                            # 시간 초과 시 다른 모델로 1회 �
 | `orchestrator.modules.claude.model` | `--model` 별칭/이름 (예: `sonnet`) | CLI 기본값 |
 | `orchestrator.modules.claude.max-budget-usd` | 에이전트 1회 실행의 비용 상한 (`--max-budget-usd`) | 2.0 |
 | `orchestrator.modules.claude.allowed-tools` | 묻지 않고 허용할 도구 패턴 (`--allowedTools`). 비대화형이라 목록에 없는 셸 명령은 거부됨 | git status/diff/log, 테스트 러너 등 |
+| `orchestrator.prompt.max-result-chars` / `max-total-chars` | 다음 단계 프롬프트에 넣는 이전 단계 결과의 상한(결과당 / 단계 합계). 넘치면 앞 70%·뒤 30%만 남기고 요약 로그에 기록. 0 = 무제한 | 24000 / 60000 |
 | `orchestrator.isolation.enabled` | 경쟁 모드(코더 2개 이상) 작업 공간 격리. 작업 공간이 git 저장소여야 함 | true |
 | `orchestrator.isolation.auto-apply` | 검증자가 채택한 후보를 작업 공간에 자동 적용 | true |
 | `orchestrator.isolation.link-dirs` | worktree에 심볼릭 링크로 연결할 ignore 디렉터리 | node_modules, .venv, venv, target, build, .gradle |

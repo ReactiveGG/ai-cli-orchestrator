@@ -217,7 +217,7 @@ public final class ExecutionManager {
                     int candidateIndex = competing ? agentIndex : (paired ? agentIndex : 0);
                     StageContext ctx = new StageContext(candidateIndex, competing ? stage.agents().size() : candidates.size(),
                             decisionRequired, isolationSettings.maxPatchChars());
-                    CompiledPrompt stagePrompt = promptCompiler.compileForStage(prompt, role, previous, ctx);
+                    CompiledPrompt stagePrompt = promptCompiler.compileForStage(prompt, role, previous, ctx, note -> observer.onSummary(step, note));
                     Path cwd = competing ? worktrees.get(agentIndex - 1).workingDir()
                             : paired ? candidateWorkingDir(competitionWorktrees, candidates, agentIndex) : null;
                     Candidate candidate = competing ? worktrees.get(agentIndex - 1) : null;

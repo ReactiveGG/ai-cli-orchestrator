@@ -8,8 +8,23 @@ import dev.orchestrator.domain.TaskType;
 import dev.orchestrator.isolation.CandidatePatch;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
 
 public final class PromptCompiler {
+    private final PromptLimits limits;
+
+    public PromptCompiler() {
+        this(PromptLimits.DEFAULT);
+    }
+
+    public PromptCompiler(PromptLimits limits) {
+        this.limits = limits == null ? PromptLimits.DEFAULT : limits;
+    }
+
+    public PromptLimits limits() {
+        return limits;
+    }
+
     public CompiledPrompt compile(ExecutionRequest request, TaskType taskType) {
         List<String> focus = request.focus().isEmpty() ? defaultFocus(taskType) : request.focus();
         StringJoiner joiner = new StringJoiner(System.lineSeparator());
@@ -45,6 +60,13 @@ public final class PromptCompiler {
     }
 
     public CompiledPrompt compileForStage(CompiledPrompt base, AgentRole role, List<ExecutionResult> previous, StageContext ctx) {
+        return compileForStage(base, role, previous, ctx, note -> { });
+    }
+
+    /**
+     * @param notes receives one line per previous result that had to be cut to fit {@link PromptLimits}
+     */
+    public CompiledPrompt compileForStage(CompiledPrompt base, AgentRole role, List<ExecutionResult> previous, StageContext ctx, Consumer<String> notes) {
         if (role != null && role.isPassThrough()) {
             role = null;
         }
@@ -68,13 +90,14 @@ public final class PromptCompiler {
         }
         joiner.add(base.body());
         List<ExecutionResult> candidates = previous.stream().filter(r -> r.candidate() > 0).toList();
+        int[] budget = {limits.maxTotalChars() > 0 ? limits.maxTotalChars() : Integer.MAX_VALUE};
         for (ExecutionResult result : previous) {
             if (result.candidate() > 0) {
                 continue;   // candidates are rendered below with their diffs
             }
             joiner.add("");
             joiner.add("## 이전 단계 " + result.stage() + " 결과: " + result.label());
-            joiner.add(result.content().isBlank() ? "(출력 없음)" : result.content().strip());
+            joiner.add(result.content().isBlank() ? "(출력 없음)" : fit(result.content().strip(), result.label(), budget, notes));
         }
         if (!candidates.isEmpty()) {
             boolean paired = ctx.candidateIndex() > 0 && !role.editsFiles();
@@ -91,7 +114,7 @@ public final class PromptCompiler {
                     continue;
                 }
                 joiner.add("코더 요약:");
-                joiner.add(c.content().isBlank() ? "(출력 없음)" : c.content().strip());
+                joiner.add(c.content().isBlank() ? "(출력 없음)" : fit(c.content().strip(), c.label(), budget, notes));
                 if (!patch.isEmpty()) {
                     joiner.add("변경 파일:");
                     joiner.add(patch.stat());
@@ -104,6 +127,23 @@ public final class PromptCompiler {
         boolean edits = role != null ? role.editsFiles() : base.editsFiles();
         return new CompiledPrompt(base.taskType(), base.target(), base.focus(), base.responseLanguage(),
                 joiner.toString(), role == null ? null : role.name(), edits);
+    }
+
+    /** Applies the per-result cap and the shared stage budget, reporting what was cut. */
+    private String fit(String text, String label, int[] budget, Consumer<String> notes) {
+        int cap = limits.capFor(budget[0]);
+        String kept = cap <= 0
+                ? "(생략: 이 단계에 넣을 이전 결과 합계 상한 " + limits.maxTotalChars() + "자에 도달 — 전문은 작업 로그의 단계 결과 참고)"
+                : PromptLimits.clip(text, cap, label);
+        if (kept.length() < text.length()) {
+            notes.accept("이전 결과 '" + label + "' " + text.length() + "자 → " + kept.length() + "자로 잘라 전달 (상한: 결과당 "
+                    + (limits.maxResultChars() > 0 ? limits.maxResultChars() : "없음") + "자, 합계 "
+                    + (limits.maxTotalChars() > 0 ? limits.maxTotalChars() : "없음") + "자)");
+        }
+        if (budget[0] != Integer.MAX_VALUE) {
+            budget[0] = Math.max(0, budget[0] - kept.length());
+        }
+        return kept;
     }
 
     private static String truncate(String text, int max, String marker) {
