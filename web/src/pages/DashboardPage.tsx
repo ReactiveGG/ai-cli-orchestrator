@@ -8,7 +8,7 @@ import { StatTile } from '../components/StatTile'
 import { formatCost, formatTime, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { LogIn, LogOut, RefreshCw as Recheck, Settings2 } from 'lucide-react'
+import { LogIn, LogOut, RefreshCw as Recheck } from 'lucide-react'
 import { ErrorBox } from '../components/Feedback'
 import { errorMessage } from '../lib/errors'
 
@@ -46,7 +46,7 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
         hint={
           <>
             {claude?.version && <div>{claude.version}{claude.loggedIn === true && claude.authMethod ? ` · 로그인: ${claude.authMethod}` : ''}</div>}
-            {claude && !claude.available && <div className="text-rose-600 dark:text-rose-300">Claude Code CLI를 찾지 못해 스텁으로 돕니다(실제 호출 없음). 설치돼 있다면 아래 "다시 확인"을 누르거나 구성 탭의 서버 설정 "실행 파일"에 경로를 넣으세요.{claude.searched && <div className="mt-0.5 break-all text-[11px] text-slate-400">찾아본 곳: {claude.searched}</div>}</div>}
+            {claude && !claude.available && <div className="text-rose-600 dark:text-rose-300">Claude Code CLI를 찾지 못해 스텁으로 돕니다(실제 호출 없음). 설치돼 있다면 아래 "다시 확인"을 누르거나 구성 탭 → 서버 설정의 "실행 파일명"에 경로를 넣으세요.{claude.searched && <div className="mt-0.5 break-all text-[11px] text-slate-400">찾아본 곳: {claude.searched}</div>}</div>}
             {claude?.available && claude.command && <div className="mono break-all text-[11px] text-slate-400">{claude.command}</div>}
             {claude?.loggedIn === false && <div className="text-rose-600 dark:text-rose-300">로그인이 안 돼 있어 작업이 실패합니다. "로그인 창 열기"를 누르면 이 PC에 터미널이 뜨고 브라우저 로그인으로 이어집니다.</div>}
             {claude && (!claude.available || claude.mode === 'cli') && <ClaudeActions showLogin={claude.available && claude.loggedIn !== true} showLogout={claude.available && claude.loggedIn === true} onDone={() => dash.refetch()} />}
@@ -166,7 +166,6 @@ function ClaudeActions({ showLogin, showLogout, onDone }: { showLogin: boolean; 
       {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending || waiting} className={btn}><LogIn size={12} className={waiting ? 'animate-pulse' : ''} /> {waiting ? '로그인 대기 중…' : '로그인 창 열기'}</button>}
       {showLogout && <button onClick={confirmLogout} disabled={logout.isPending} className={btn}><LogOut size={12} /> {logout.isPending ? '로그아웃 중…' : '로그아웃'}</button>}
       <button onClick={() => refresh.mutate()} disabled={refresh.isPending} className={btn}><Recheck size={12} className={refresh.isPending ? 'animate-spin' : ''} /> 다시 확인</button>
-      <a href="#config-settings" onClick={(e) => { if (window.location.hash === '#config-settings') { e.preventDefault(); window.dispatchEvent(new HashChangeEvent('hashchange')) } }} title="구성 탭의 서버 설정으로 이동해 claude 실행 파일 경로를 직접 입력" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
       {note && <span className="w-full text-[11px] text-slate-500">{note}</span>}
     </div>
   )
