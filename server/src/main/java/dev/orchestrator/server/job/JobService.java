@@ -19,6 +19,7 @@ import dev.orchestrator.server.config.OrchestratorProperties;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -48,18 +49,24 @@ public class JobService {
     private final JobEventBus bus = new JobEventBus();
     private final java.util.concurrent.ThreadPoolExecutor executor;
     private final Map<String, Job> jobs = new ConcurrentHashMap<>();
+    private final OrchestratorProperties.Retention retention;
     private final Map<String, Future<?>> futures = new ConcurrentHashMap<>();
     private final AtomicInteger running = new AtomicInteger();
     private volatile int concurrency;
 
     @Autowired
     public JobService(OrchestrationService orchestration, OrchestratorProperties properties) throws IOException {
-        this(orchestration, new JobStore(properties.jobsDir()), properties.concurrency());
+        this(orchestration, new JobStore(properties.jobsDir()), properties.concurrency(), properties.retention());
     }
 
     JobService(OrchestrationService orchestration, JobStore store, int concurrency) {
+        this(orchestration, store, concurrency, new OrchestratorProperties.Retention(0, Duration.ZERO));
+    }
+
+    JobService(OrchestrationService orchestration, JobStore store, int concurrency, OrchestratorProperties.Retention retention) {
         this.orchestration = orchestration;
         this.store = store;
+        this.retention = retention;
         this.concurrency = Math.max(1, concurrency);
         this.executor = new java.util.concurrent.ThreadPoolExecutor(this.concurrency, this.concurrency, 60, TimeUnit.SECONDS,
                 new java.util.concurrent.LinkedBlockingQueue<>(), runnable -> {
@@ -76,6 +83,49 @@ public class JobService {
             jobs.put(job.id(), job);
         }
         log.info("Loaded {} persisted jobs, concurrency {}", jobs.size(), this.concurrency);
+        prune();
+    }
+
+    /**
+     * Deletes finished jobs beyond the retention limits (count and age), newest kept. Runs at
+     * startup and whenever a job finishes, so the data directory stays bounded without a cron.
+     */
+    synchronized int prune() {
+        int maxJobs = retention.maxJobs();
+        Duration maxAge = retention.maxAge();
+        boolean byAge = maxAge != null && !maxAge.isZero() && !maxAge.isNegative();
+        if (maxJobs <= 0 && !byAge) {
+            return 0;
+        }
+        List<Job> finished = jobs.values().stream()
+                .filter(j -> j.status().isTerminal())
+                .sorted(Comparator.comparing((Job j) -> j.snapshot().createdAt()).reversed())
+                .toList();
+        Instant cutoff = byAge ? Instant.now().minus(maxAge) : null;
+        int removed = 0;
+        for (int i = 0; i < finished.size(); i++) {
+            Job job = finished.get(i);
+            JobSnapshot s = job.snapshot();
+            Instant when = s.finishedAt() != null ? s.finishedAt() : s.createdAt();
+            boolean tooMany = maxJobs > 0 && i >= maxJobs;
+            boolean tooOld = cutoff != null && when.isBefore(cutoff);
+            if (!tooMany && !tooOld) {
+                continue;
+            }
+            try {
+                jobs.remove(job.id());
+                futures.remove(job.id());
+                store.delete(job.id());
+                removed++;
+            } catch (IOException e) {
+                log.warn("Could not delete old job {}: {}", job.id(), e.toString());
+            }
+        }
+        if (removed > 0) {
+            log.info("Pruned {} finished job(s) (keep {} / {})", removed, maxJobs > 0 ? maxJobs : "all", byAge ? maxAge : "any age");
+            bus.publishJobs(list());
+        }
+        return removed;
     }
 
     public int concurrency() {
@@ -110,10 +160,11 @@ public class JobService {
         job.setFlowLabel(flow.label());
         jobs.put(id, job);
         emit(job, JobEventLevel.SUMMARY, null, "대기열에 추가됨: " + JobRequest.display(request));
-        store.save(job.snapshot());
-        bus.publishJob(job.snapshot());
+        JobSnapshot queued = job.snapshot();   // taken before the runner can start, so the response always says QUEUED
+        store.save(queued);
+        bus.publishJob(queued);
         futures.put(id, executor.submit(() -> run(job)));
-        return job.snapshot();
+        return queued;
     }
 
     public List<JobSnapshot> submitAll(List<ExecutionRequest> requests) {
@@ -125,6 +176,28 @@ public class JobService {
                 .map(Job::snapshot)
                 .sorted(Comparator.comparing(JobSnapshot::createdAt).reversed())
                 .toList();
+    }
+
+    /**
+     * Newest first, filtered and paged for the history view.
+     *
+     * @param query  case-insensitive substring of the command, target, preset or id (null/blank = all)
+     * @param status exact status (null = all)
+     * @param offset rows to skip
+     * @param limit  max rows (<= 0 = all)
+     */
+    public List<JobSnapshot> list(String query, JobStatus status, int offset, int limit) {
+        String q = query == null ? "" : query.trim().toLowerCase();
+        var stream = list().stream()
+                .filter(s -> status == null || s.status() == status)
+                .filter(s -> q.isEmpty() || s.command().toLowerCase().contains(q) || s.id().contains(q)
+                        || s.flow().toLowerCase().contains(q) || (s.flowLabel() != null && s.flowLabel().toLowerCase().contains(q)))
+                .skip(Math.max(0, offset));
+        return (limit > 0 ? stream.limit(limit) : stream).toList();
+    }
+
+    public int count(String query, JobStatus status) {
+        return list(query, status, 0, 0).size();
     }
 
     public JobSnapshot get(String id) {
@@ -273,6 +346,7 @@ public class JobService {
             store.close(job.id());
             bus.publishJob(job.snapshot());
             bus.completeJob(job.id());
+            prune();
         }
     }
 

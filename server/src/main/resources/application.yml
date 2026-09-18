@@ -63,6 +63,10 @@ orchestrator:
     max-patch-chars: 40000
     link-dirs: [node_modules, .venv, venv, target, build, .gradle]
     exclude: ["__pycache__", "*.pyc", ".DS_Store", "Thumbs.db", "*.swp"]   # never captured into a candidate
+  # Finished jobs beyond these limits are deleted with their logs (newest kept). Running/queued jobs never are.
+  retention:
+    max-jobs: 200       # 0 = unlimited
+    max-age: 30d        # 0 = unlimited
   security:
     # The workspace agents read and edit must be under one of these roots (the UI refuses others).
     allowed-workspace-roots: ["${user.home}"]

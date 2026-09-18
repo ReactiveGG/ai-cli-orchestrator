@@ -42,7 +42,8 @@ class JobServiceTest {
                         "codex", new OrchestratorProperties.ModuleSettings(ModuleMode.STUB, "codex", List.of(), null, null, List.of())),
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
                 new OrchestratorProperties.Isolation(true, List.of(), true, false, 40_000, List.of("__pycache__")),
-                new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null));
+                new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null),
+                new OrchestratorProperties.Retention(200, Duration.ofDays(30)));
         orchestration = new OrchestrationService(properties);
         service = new JobService(orchestration, new JobStore(properties.jobsDir()), 1);
     }
@@ -153,6 +154,46 @@ class JobServiceTest {
         assertEquals(summaryBefore.stream().map(JobEvent::stepId).toList(), summaryAfter.stream().map(JobEvent::stepId).toList());
         assertTrue(summaryAfter.stream().mapToLong(JobEvent::seq).allMatch(seq -> seq > 0));
         reloaded.shutdown();
+    }
+
+    @Test
+    void pruneKeepsOnlyTheNewestFinishedJobs() throws Exception {
+        JobService keepTwo = new JobService(orchestration, new JobStore(tempDir.resolve("jobs")), 1, new OrchestratorProperties.Retention(2, Duration.ZERO));
+        try {
+            String a = await(keepTwo, keepTwo.submit(new ExecutionRequest("default", "a", List.of(), "ko")).id()).id();
+            Thread.sleep(5);
+            String b = await(keepTwo, keepTwo.submit(new ExecutionRequest("default", "b", List.of(), "ko")).id()).id();
+            Thread.sleep(5);
+            String c = await(keepTwo, keepTwo.submit(new ExecutionRequest("default", "c", List.of(), "ko")).id()).id();
+            assertEquals(List.of(c, b), keepTwo.list().stream().map(JobSnapshot::id).toList(), "oldest finished job pruned after c finished");
+            assertFalse(Files.exists(tempDir.resolve("jobs").resolve(a)), "its directory is gone");
+            assertTrue(Files.exists(tempDir.resolve("jobs").resolve(c)));
+            assertEquals(0, keepTwo.prune(), "nothing more to prune");
+
+            // age-based: everything finished before "now" goes, but a restart with the same limits keeps the survivors
+            JobService reloaded = new JobService(orchestration, new JobStore(tempDir.resolve("jobs")), 1, new OrchestratorProperties.Retention(2, Duration.ofDays(30)));
+            assertEquals(2, reloaded.list().size());
+            reloaded.shutdown();
+            JobService ageOnly = new JobService(orchestration, new JobStore(tempDir.resolve("jobs")), 1, new OrchestratorProperties.Retention(0, Duration.ofMillis(1)));
+            assertEquals(0, ageOnly.list().size(), "both older than 1ms at startup");
+            ageOnly.shutdown();
+        } finally {
+            keepTwo.shutdown();
+        }
+    }
+
+    @Test
+    void listFiltersAndPages() throws Exception {
+        await(service, service.submit(new ExecutionRequest("default", "alpha.ts", List.of(), "ko")).id());
+        await(service, service.submit(new ExecutionRequest("cross-review", "beta.ts", List.of(), "ko")).id());
+        await(service, service.submit(new ExecutionRequest("default", "gamma.ts", List.of(), "ko")).id());
+        assertEquals(3, service.count(null, null));
+        assertEquals(List.of("gamma.ts", "beta.ts", "alpha.ts"), service.list(null, null, 0, 0).stream().map(JobSnapshot::target).toList(), "newest first");
+        assertEquals(List.of("beta.ts"), service.list("BETA", null, 0, 0).stream().map(JobSnapshot::target).toList(), "case-insensitive command match");
+        assertEquals(List.of("beta.ts"), service.list("교차", null, 0, 0).stream().map(JobSnapshot::target).toList(), "preset label match");
+        assertEquals(List.of("beta.ts", "alpha.ts"), service.list(null, null, 1, 5).stream().map(JobSnapshot::target).toList(), "offset");
+        assertEquals(List.of("gamma.ts"), service.list(null, JobStatus.SUCCEEDED, 0, 1).stream().map(JobSnapshot::target).toList(), "limit");
+        assertEquals(0, service.count(null, JobStatus.FAILED));
     }
 
     @Test
