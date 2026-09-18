@@ -47,9 +47,11 @@ public class ConfigController {
     private final dev.orchestrator.server.job.JobService jobs;
 
     private final dev.orchestrator.server.config.FolderDialog folderDialog;
+    private final dev.orchestrator.server.config.WorkspaceService workspaceService;
 
-    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties, dev.orchestrator.server.job.JobService jobs, dev.orchestrator.server.config.FolderDialog folderDialog) {
+    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties, dev.orchestrator.server.job.JobService jobs, dev.orchestrator.server.config.FolderDialog folderDialog, dev.orchestrator.server.config.WorkspaceService workspaceService) {
         this.folderDialog = folderDialog;
+        this.workspaceService = workspaceService;
         this.orchestration = orchestration;
         this.properties = properties;
         this.jobs = jobs;
@@ -99,6 +101,18 @@ public class ConfigController {
         out.put("path", picked.orElse(null));
         out.put("backend", folderDialog.backend().name());
         return out;
+    }
+
+    /** Whether the saved workspace can run competition mode (git repo + git installed). */
+    @GetMapping("/workspace")
+    public dev.orchestrator.server.config.WorkspaceService.WorkspaceStatus workspace() {
+        return workspaceService.status();
+    }
+
+    /** "준비하기": git init in the saved workspace so presets with 2+ coders can isolate candidates. */
+    @org.springframework.web.bind.annotation.PostMapping("/workspace/git-init")
+    public dev.orchestrator.server.config.WorkspaceService.WorkspaceStatus gitInit() throws java.io.IOException {
+        return workspaceService.gitInit();
     }
 
     @GetMapping("/settings")

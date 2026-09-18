@@ -143,6 +143,34 @@ public class DesktopLauncher {
         return img;
     }
 
+    /** True when the port serves our API (a healthy running instance), not just any listener. */
+    public static boolean isOurServer(int port) {
+        try {
+            java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(2)).build();
+            java.net.http.HttpResponse<String> res = client.send(java.net.http.HttpRequest.newBuilder(URI.create(url(port) + "api/session"))
+                    .timeout(java.time.Duration.ofSeconds(3)).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+            return res.statusCode() == 200 && res.body().contains("tokenRequired");
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            return false;
+        }
+    }
+
+    /** Polls until nothing listens on the port any more, or the timeout passes. */
+    public static void waitForPortToFree(int port, long timeoutMillis) {
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline && portInUse(port)) {
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
     /** True when something already answers on the port (a running instance). */
     public static boolean portInUse(int port) {
         try (Socket socket = new Socket()) {

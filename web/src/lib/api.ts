@@ -1,5 +1,5 @@
 import type {
-  Catalog, DirListing, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
+  Catalog, DirListing, WorkspaceStatus, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
 } from './types'
 import { mockApi, mockSubscribe } from './mock'
 import { humanize } from './errors'
@@ -84,6 +84,10 @@ const realApi = {
   routingYaml: async () => { const t = await ensureToken(); return (await fetch('/api/config/routing.yaml', { headers: t ? { 'X-Orchestrator-Token': t } : {} })).text() },
   settings: () => request<Settings>('/api/config/settings'),
   saveSettings: (body: Settings) => request<Settings>('/api/config/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  /** Saved workspace: git repo? git installed? (competition mode needs both) */
+  workspaceStatus: () => request<WorkspaceStatus>('/api/config/workspace'),
+  /** "준비하기": git init in the saved workspace. */
+  gitInit: () => request<WorkspaceStatus>('/api/config/workspace/git-init', { method: 'POST' }),
   /** Directory listing for the in-page folder picker (allowed workspace roots only). */
   listDirs: (path?: string) => request<DirListing>(`/api/fs/dirs${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   /** Opens the OS folder dialog on the server's desktop; resolves to null when the user cancels. */

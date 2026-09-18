@@ -129,6 +129,9 @@ export interface RateLimitInfo {
   observedAt: string
 }
 
+/** Can the saved workspace run competition mode? (git repo + git installed) */
+export interface WorkspaceStatus { path: string | null; exists: boolean; gitRepo: boolean; gitAvailable: boolean; gitVersion: string | null; gitCommand: string | null }
+
 export interface DirEntry { name: string; path: string; gitRepo: boolean }
 export interface DirListing { path: string; parent: string | null; dirs: DirEntry[]; roots: DirEntry[]; allowed: boolean; error: string | null }
 

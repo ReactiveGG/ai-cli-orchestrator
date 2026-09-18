@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, Save } from 'lucide-react'
 import { FolderPicker } from './FolderPicker'
+import { GitBranch, Download } from 'lucide-react'
 import { api } from '../lib/api'
-import type { Settings } from '../lib/types'
+import type { Settings, WorkspaceStatus } from '../lib/types'
 import { ErrorBox, Loading, Message } from './Feedback'
 import { errorMessage } from '../lib/errors'
 
@@ -19,10 +20,16 @@ export function SettingsPanel() {
   const [message, setMessage] = useState<string | null>(null)
   useEffect(() => { if (query.data && !draft) setDraft(structuredClone(query.data)) }, [query.data, draft])
   const [picking, setPicking] = useState(false)
+  const wsStatus = useQuery({ queryKey: ['workspace-status'], queryFn: api.workspaceStatus, staleTime: 15_000 })
+  const gitInit = useMutation({
+    mutationFn: api.gitInit,
+    onSuccess: () => { setMessage('준비했습니다. 이제 코더 2개 이상 프리셋(경쟁 모드)을 쓸 수 있습니다.'); qc.invalidateQueries({ queryKey: ['workspace-status'] }) },
+    onError: (e: Error) => setMessage(`준비 실패: ${errorMessage(e)}`),
+  })
 
   const save = useMutation({
     mutationFn: () => api.saveSettings(draft!),
-    onSuccess: (d) => { setDraft(structuredClone(d)); setMessage('저장했습니다. 새 작업부터 적용됩니다.'); qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }) },
+    onSuccess: (d) => { setDraft(structuredClone(d)); setMessage('저장했습니다. 새 작업부터 적용됩니다.'); qc.invalidateQueries({ queryKey: ['settings'] }); qc.invalidateQueries({ queryKey: ['catalog'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); qc.invalidateQueries({ queryKey: ['workspace-status'] }) },
     onError: (e: Error) => setMessage(`저장 실패: ${errorMessage(e)}`),
   })
 
@@ -59,6 +66,7 @@ export function SettingsPanel() {
             </button>
             {picking && <FolderPicker initial={d.workspace} onPick={(path) => { set({ workspace: path }); setPicking(false); setMessage(`폴더를 선택했습니다: ${path} — "설정 저장"을 눌러야 적용됩니다.`) }} onClose={() => setPicking(false)} />}
           </span>
+          <WorkspaceReadiness status={wsStatus.data} saved={query.data?.workspace === d.workspace} onPrepare={() => gitInit.mutate()} preparing={gitInit.isPending} />
         </label>
         <label className={label}>동시 실행 수
           <input type="number" min={1} max={16} value={d.concurrency} onChange={(e) => set({ concurrency: Number(e.target.value) })} className={input} />
@@ -121,5 +129,30 @@ export function SettingsPanel() {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * One line under the workspace field: can this folder run competition mode (2+ coders)?
+ * Preparing = `git init` done by the server; plain words, no git knowledge required.
+ */
+function WorkspaceReadiness({ status, saved, onPrepare, preparing }: { status?: WorkspaceStatus; saved: boolean; onPrepare: () => void; preparing: boolean }) {
+  if (!status) return null
+  if (!saved) return <span className="text-slate-400">저장하면 이 폴더가 경쟁 모드를 쓸 수 있는지 확인합니다.</span>
+  if (!status.exists) return <span className="text-rose-600 dark:text-rose-300">폴더가 없습니다. 존재하는 폴더를 고르세요.</span>
+  if (status.gitRepo) return <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><GitBranch size={12} /> 준비됨 · 모든 프리셋(경쟁 모드 포함)을 쓸 수 있습니다{status.gitVersion ? ` · ${status.gitVersion.replace('git version ', 'git ')}` : ''}</span>
+  if (!status.gitAvailable) return (
+    <span className="inline-flex flex-wrap items-center gap-1 text-amber-700 dark:text-amber-300">
+      기본 프리셋(코더 1개)은 바로 됩니다. 코더 2개 이상 프리셋(경쟁 모드)을 쓰려면 Git이 필요합니다.
+      <a href="https://git-scm.com/download/win" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded border border-amber-400 px-1.5 py-0.5 hover:bg-amber-50 dark:hover:bg-amber-950"><Download size={11} /> Git 설치</a>
+      설치 후 이 화면을 새로고침하세요.
+    </span>
+  )
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5 text-slate-600 dark:text-slate-300">
+      기본 프리셋(코더 1개)은 바로 됩니다. 코더 2개 이상 프리셋(경쟁 모드)을 쓰려면 한 번 준비가 필요합니다.
+      <button type="button" onClick={onPrepare} disabled={preparing} className="inline-flex items-center gap-1 rounded border border-sky-400 bg-sky-50 px-2 py-0.5 text-sky-800 hover:bg-sky-100 disabled:opacity-50 dark:bg-sky-950 dark:text-sky-200"><GitBranch size={11} /> {preparing ? '준비 중…' : '준비하기'}</button>
+      <span className="text-slate-400">(폴더 안에 숨김 폴더 .git이 생깁니다. 인터넷에 올라가는 건 없고 여러 코더의 결과를 비교·적용하는 데 씁니다)</span>
+    </span>
   )
 }

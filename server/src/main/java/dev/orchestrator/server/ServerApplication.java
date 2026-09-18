@@ -12,9 +12,15 @@ public class ServerApplication {
         if (desktopEnabled(args)) {
             int port = port(args);
             if (DesktopLauncher.portInUse(port)) {
-                // Second click on the app icon: the server is already running, just show it.
-                DesktopLauncher.openBrowser(DesktopLauncher.url(port));
-                return;
+                if (DesktopLauncher.isOurServer(port)) {
+                    // Second click on the app icon: the server is already running, just show it.
+                    DesktopLauncher.openBrowser(DesktopLauncher.url(port));
+                    return;
+                }
+                // The port answers but not as our API: most likely the previous instance is still shutting
+                // down (user pressed 종료 and relaunched at once). Give it a moment instead of opening a
+                // browser on a dying server, which shows an empty page.
+                DesktopLauncher.waitForPortToFree(port, 20_000);
             }
         }
         SpringApplication.run(ServerApplication.class, args);

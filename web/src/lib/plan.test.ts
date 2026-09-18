@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPlan, describeAgent, signatureOf } from './plan'
+import { buildPlan, describeAgent, signatureOf, codersOf } from './plan'
 import type { FlowConfig, FlowDto } from './types'
 
 const roles: FlowConfig['roles'] = {
@@ -22,6 +22,12 @@ describe('signatureOf', () => {
 })
 
 describe('describeAgent', () => {
+  it('reads the coder count from a signature', () => {
+    expect(codersOf('1-1-1-1')).toBe(1)
+    expect(codersOf('1-3-3-1')).toBe(3)
+    expect(codersOf('')).toBe(1)
+  })
+
   it('shows module, then model and effort when set', () => {
     expect(describeAgent({ module: 'claude', model: null, effort: null, command: null })).toBe('claude')
     expect(describeAgent({ module: 'claude', model: 'sonnet', effort: null, command: '/plan' })).toBe('claude sonnet /plan')
