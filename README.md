@@ -81,7 +81,7 @@ jar 하나에 서버와 웹 UI가 들어 있어 JDK 21만 있는 PC에 복사해
 
 ### Windows 앱으로 실행 (설치형, Java 불필요)
 
-GitHub Actions의 **Windows app (jpackage)** 잡이 `AI-CLI-Orchestrator-windows-x64.zip`(앱 폴더)과, 러너에 WiX가 있으면 `.msi` 설치 파일을 만든다. `v*` 태그를 푸시하면 GitHub 릴리스에 자동으로 붙는다. zip은 풀어서 `AI CLI Orchestrator.exe`를 실행하면 되고, msi는 설치 후 시작 메뉴에서 연다. 실행하면 서버가 뜨고 기본 브라우저에 http://localhost:47120 이 열리며, 트레이 아이콘의 "대시보드 열기 / 종료"로 다룬다. 이미 떠 있는데 아이콘을 또 누르면 브라우저만 다시 연다. 서버 로그는 `%USERPROFILE%\.ai-orchestrator\server.log`에 쌓인다. 직접 만들려면 Windows에서 `gradlew.bat :server:jpackage`(zip용 앱 폴더) 또는 `-PjpackageType=msi`.
+GitHub Actions의 **Windows app (jpackage)** 잡이 비설치형 `AI-CLI-Orchestrator-windows-x64.zip`(약 60MB: 서버 jar 25MB + 필요한 모듈만 담은 Java 런타임)을 만든다. `v*` 태그를 푸시하면 GitHub 릴리스에 자동으로 붙는다. 풀어서 `AI CLI Orchestrator.exe`를 실행하면 된다. 설치형이 필요하면 Windows에서 `gradlew.bat :server:jpackage -PjpackageType=msi`(WiX 필요). 실행하면 서버가 뜨고 기본 브라우저에 http://localhost:47120 이 열리며, 트레이 아이콘의 "대시보드 열기 / 종료"로 다룬다. 이미 떠 있는데 아이콘을 또 누르면 브라우저만 다시 연다. 서버 로그는 `%USERPROFILE%\.ai-orchestrator\server.log`에 쌓인다. 직접 만들려면 Windows에서 `gradlew.bat :server:jpackage`(zip용 앱 폴더) 또는 `-PjpackageType=msi`.
 
 ### IntelliJ에서 실행
 

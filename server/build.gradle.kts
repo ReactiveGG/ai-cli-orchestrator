@@ -83,7 +83,11 @@ val jpackage by tasks.registering(Exec::class) {
         "--input", jpackageInput.get().asFile.path,
         "--main-jar", mainJar.get(),
         "--dest", dest.get().asFile.path,
-        "--add-modules", "java.se,jdk.unsupported,jdk.crypto.ec,jdk.zipfs,jdk.localedata,jdk.charsets",
+        // Only what Spring Boot + AWT tray + the CLI modules touch; java.se would double the runtime.
+        "--add-modules", "java.base,java.logging,java.management,java.naming,java.sql,java.xml,java.desktop,java.instrument,"
+                + "java.net.http,java.security.jgss,java.security.sasl,java.scripting,java.prefs,jdk.unsupported,jdk.crypto.ec,"
+                + "jdk.zipfs,jdk.charsets",   // no jdk.localedata: the server formats nothing locale-specific (the browser does), saves ~25MB
+        "--jlink-options", "--strip-debug --no-man-pages --no-header-files --compress=zip-6",
         "--java-options", "-Dorchestrator.desktop.enabled=true",
         "--java-options", "-Djava.awt.headless=false",
         "--java-options", "-Dfile.encoding=UTF-8",
