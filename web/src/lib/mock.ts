@@ -18,8 +18,8 @@ const SLASH_COMMANDS: Catalog['commands'] = [
 ]
 
 const MODULES: StatusReport['modules'] = [
-  { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli', loggedIn: true, authMethod: 'claude.ai' },
-  { name: 'codex', description: 'stub', available: false, version: null, mode: 'stub', loggedIn: null, authMethod: null },
+  { name: 'claude', description: 'cli: claude', available: true, version: '2.1.274 (Claude Code)', mode: 'cli', loggedIn: true, authMethod: 'claude.ai', command: 'C:\\Users\\me\\.local\\bin\\claude.exe', searched: null },
+  { name: 'codex', description: 'stub', available: false, version: null, mode: 'stub', loggedIn: null, authMethod: null, command: null, searched: 'PATH, C:\\Users\\me\\.local\\bin, C:\\Users\\me\\AppData\\Roaming\\npm' },
 ]
 const BUILT_IN_ROLES: FlowConfig['roles'] = {
   executor: { label: '실행', builtIn: true, instructions: '' },
@@ -303,6 +303,8 @@ export const mockApi = {
     return delay({ usage: { today: sum(all.filter((j) => new Date(j.createdAt).toDateString() === today)), total: sum(all), byModule, last7Days }, status: status(), jobCounts, concurrency: CONCURRENCY, running: jobCounts.RUNNING, recentJobs: all.slice(0, 10), generatedAt: new Date().toISOString(), subscription: { status: 'allowed', fiveHourUtilization: 0.37, fiveHourResetsAt: new Date(Date.now() + 2.4 * 3600e3).toISOString(), sevenDayUtilization: 0.62, sevenDayResetsAt: new Date(Date.now() + 3 * 86400e3).toISOString(), rateLimitType: null, observedAt: new Date(Date.now() - 6 * 60e3).toISOString() } })
   },
   status: (): Promise<StatusReport> => delay(status()),
+  refreshStatus: (): Promise<StatusReport> => delay(status()),
+  claudeLogin: (): Promise<{ opened: boolean; command: string; terminal: string }> => delay({ opened: true, command: 'claude auth login', terminal: 'cmd.exe' }),
   catalog: (): Promise<Catalog> => delay({ flows: Object.entries(config.flows).map(([n, f]) => flowInfo(n, f)), options: OPTIONS, modules: MODULES.map((m) => ({ name: m.name, description: m.description, available: m.available })), roles: Object.entries(config.roles).map(([name, r]) => ({ name, label: r.label, instructions: r.instructions })), commands: SLASH_COMMANDS }),
   jobs: (): Promise<Job[]> => delay(sorted()),
   job: (id: string): Promise<Job> => delay(snapshot(find(id))),
