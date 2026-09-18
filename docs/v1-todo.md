@@ -21,10 +21,9 @@
 
 ## 남은 일
 
-계획했던 진행 순서(#2 실연동 → #3 격리 → #6·#7 → #10·#9·#11)는 모두 끝났다. v1은 기능 완료 상태이며 아래만 남아 있다.
+계획했던 진행 순서(#2 실연동 → #3 격리 → #6·#7 → #10·#9·#11)는 모두 끝났다. v1은 기능 완료 상태이며 아래만 남아 있다(Codex는 CLI가 설치된 환경이 생길 때).
 
-1. **#10 토큰 파일 권한(Windows)** — `%USERPROFILE%\.ai-orchestrator\api-token`이 NTFS 기본 ACL로 본인만 읽는지 `icacls`로 확인.
-2. **#8 Codex CLI 연동** — CLI가 설치된 환경이 생기면 `codex exec --json -` 이벤트 형식에 맞춰 파서·usage 집계 확인. 그 전까지 스텁.
+1. **#8 Codex CLI 연동** — CLI가 설치된 환경이 생기면 `codex exec --json -` 이벤트 형식에 맞춰 파서·usage 집계 확인. 그 전까지 스텁.
 
 ## 상세 체크리스트
 
@@ -112,7 +111,7 @@
 - [x] 작업 공간 경로 검증 (허용 루트 밖 경로 거부, 심볼릭 링크 해석)
 - [x] `acceptEdits`는 코더 단계에만, 나머지는 읽기 전용 (리플레이 테스트로 확인)
 - [x] Host 검사(DNS 리바인딩), Origin 검사(다른 사이트의 변경 요청), 설치별 API 토큰(`<data-dir>/api-token`, 같은 출처 화면만 `/api/session`으로 획득, SSE는 `?token=`)
-- [ ] 후속: 토큰 파일 권한이 Windows에서도 소유자 전용인지 확인
+- [x] 후속: Windows 토큰 파일 권한 확인 — `icacls %USERPROFILE%\.ai-orchestrator\api-token` 결과 SYSTEM·Administrators·본인 계정만 접근(프로필 폴더 ACL 상속). 다른 사용자 계정은 읽을 수 없음 (2026-09-18)
 
 ### 11. 테스트·CI
 - [x] core/cli/server 단위 테스트 (50개)
