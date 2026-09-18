@@ -13,7 +13,7 @@ subprojects {
     apply(plugin = "java")
 
     group = "dev.orchestrator"
-    version = "0.1.1"
+    version = "0.1.2"
 
     if (buildDirBase != null) {
         layout.buildDirectory.set(File(buildDirBase, name))
