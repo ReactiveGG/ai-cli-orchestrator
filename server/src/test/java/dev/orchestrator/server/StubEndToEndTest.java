@@ -96,6 +96,24 @@ class StubEndToEndTest {
         assertTrue(stream.contains("event:log"), stream);
         assertEquals(401, get("/api/jobs/" + id + "/events", null).statusCode(), "SSE also needs the token");
 
+        // 6b. Resuming: ?after=seq (web client reopening a stale stream) and Last-Event-ID (browser auto-reconnect)
+        //     replay only what follows; the snapshot still comes first.
+        long lastSeq = summary.get(summary.size() - 1).get("seq").asLong();
+        List<JsonNode> all = JSON.readTree(get("/api/jobs/" + id + "/logs?level=DETAIL", token).body()).findValues("seq");
+        long maxSeq = Math.max(lastSeq, all.stream().mapToLong(JsonNode::asLong).max().orElse(0));
+        String resumed = readSse("/api/jobs/" + id + "/events?token=" + token + "&after=" + (maxSeq - 1), "id:" + maxSeq);
+        assertTrue(resumed.contains("event:job"), resumed);
+        assertTrue(resumed.contains("id:" + maxSeq), resumed);
+        assertFalse(resumed.contains("id:1\n"), "first event was not replayed: " + resumed);
+        HttpResponse<InputStream> viaHeader = http.send(HttpRequest.newBuilder(uri("/api/jobs/" + id + "/events?token=" + token))
+                .header("Last-Event-ID", Long.toString(maxSeq - 1)).timeout(Duration.ofSeconds(10)).GET().build(), HttpResponse.BodyHandlers.ofInputStream());
+        try (InputStream in = viaHeader.body()) {
+            byte[] head = in.readNBytes(2000);
+            String text = new String(head, StandardCharsets.UTF_8);
+            assertTrue(text.contains("event:job"), text);
+            assertFalse(text.contains("id:1\n"), "Last-Event-ID honoured: " + text);
+        }
+
         // 7. Dashboard and list reflect the finished job.
         JsonNode dashboard = JSON.readTree(get("/api/dashboard", token).body());
         assertTrue(dashboard.get("jobCounts").get("SUCCEEDED").asInt() >= 1, dashboard.toString());

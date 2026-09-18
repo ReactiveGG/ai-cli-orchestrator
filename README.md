@@ -206,13 +206,13 @@ Job 데이터는 `<data-dir>/jobs/<id>/`에 `job.json`, `summary.log`, `detail.l
 |---|---|---|
 | GET | `/api/dashboard` | 사용량, 상태, 작업 카운트 |
 | GET | `/api/catalog` | 프리셋(서명 포함), 옵션(한국어), 모듈, 역할 |
-| GET/POST | `/api/jobs` | 목록 / 생성 (`commandLine` 또는 `target`+`flow`=프리셋) |
+| GET/POST | `/api/jobs` | 목록(`?q=검색&status=SUCCEEDED&offset=0&limit=50`, 총 개수는 `X-Total-Count` 헤더) / 생성 (`commandLine` 또는 `target`+`flow`=프리셋) |
 | POST | `/api/jobs/batch` | 여러 명령을 한 번에 |
 | POST | `/api/jobs/preview` | 실행 없이 단계 그래프만 |
 | POST | `/api/jobs/{id}/cancel` | 취소 |
 | POST | `/api/jobs/{id}/apply?candidate=k` | 경쟁 모드 후보 k의 patch를 작업 공간에 수동 적용 (검증자 선택 덮어쓰기 가능) |
 | GET | `/api/jobs/{id}/candidates/{k}/patch` | 후보 k의 diff 원문 |
-| GET | `/api/jobs/{id}/events` | SSE: `job` 스냅샷 + `log` 이벤트 (`?after=seq`로 이어받기) |
+| GET | `/api/jobs/{id}/events` | SSE: `job` 스냅샷 + `log` 이벤트. `?after=seq` 또는 브라우저의 `Last-Event-ID` 헤더로 이어받기, 15초마다 `ping` |
 | GET | `/api/jobs/{id}/logs?level=SUMMARY|DETAIL` | 로그 조회 |
 | GET | `/api/events` | SSE: 전체 Job 변경 |
 | GET/PUT | `/api/config/routing` | 프리셋 구성 조회/저장 (저장 시 즉시 반영) |

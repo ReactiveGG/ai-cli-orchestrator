@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, subscribe } from '../lib/api'
 import type { Job, JobEvent } from '../lib/types'
@@ -16,11 +16,13 @@ export function JobDetail({ jobId, onCancel, onBack }: { jobId: string; onCancel
   const [job, setJob] = useState<Job | null>(null)
   const [events, setEvents] = useState<JobEvent[]>([])
   const [connected, setConnected] = useState(false)
+  const lastSeq = useRef(0)
   const now = useNow()
 
   useEffect(() => {
     setJob(null)
     setEvents([])
+    lastSeq.current = 0
     const close = subscribe(
       `/api/jobs/${jobId}/events`,
       {
@@ -28,10 +30,12 @@ export function JobDetail({ jobId, onCancel, onBack }: { jobId: string; onCancel
         log: (data) => setEvents((prev) => {
           const e = data as JobEvent
           if (prev.length && prev[prev.length - 1].seq >= e.seq) return prev
+          lastSeq.current = e.seq
           return [...prev, e]
         }),
       },
       () => setConnected(false),
+      () => lastSeq.current,
     )
     setConnected(true)
     return close

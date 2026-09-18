@@ -23,7 +23,8 @@ class RuntimeSettingsTest {
                 Map.of("claude", new OrchestratorProperties.ModuleSettings(ModuleMode.AUTO, "claude", List.of(), null, 2.0, List.of("Bash(git status*)"))),
                 new OrchestratorProperties.Status("", Duration.ofSeconds(60)),
                 new OrchestratorProperties.Isolation(true, List.of("node_modules"), true, false, 40_000, List.of("__pycache__")),
-                new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null));
+                new OrchestratorProperties.Security(List.of(tempDir.toString()), false, null),
+                new OrchestratorProperties.Retention(200, Duration.ofDays(30)));
     }
 
     @Test

@@ -92,6 +92,7 @@ function realSubscribe(
   url: string,
   handlers: Record<string, (data: unknown) => void>,
   onError?: () => void,
+  resumeFrom?: () => number,
 ): () => void {
   let source: EventSource | null = null
   let closed = false
@@ -100,7 +101,9 @@ function realSubscribe(
     await ensureToken()
     if (closed) return
     source?.close()
-    source = new EventSource(withToken(url))   // EventSource cannot set headers, so the token travels as ?token=
+    const after = resumeFrom?.() ?? 0
+    const target = after > 0 ? `${url}${url.includes('?') ? '&' : '?'}after=${after}` : url   // resume: replay only what this page has not seen
+    source = new EventSource(withToken(target))   // EventSource cannot set headers, so the token travels as ?token=
     lastFrame = Date.now()
     source.addEventListener('ping', () => { lastFrame = Date.now() })
     for (const [name, handler] of Object.entries(handlers)) {
@@ -129,3 +132,14 @@ function realSubscribe(
 }
 
 export const subscribe: typeof realSubscribe = MOCK ? (url, handlers) => mockSubscribe(url, handlers) : realSubscribe
+
+/** Query string for the paged/filtered job list (`GET /api/jobs?q=&status=&offset=&limit=`). */
+export function jobsQuery(params: { q?: string; status?: string; offset?: number; limit?: number }): string {
+  const p = new URLSearchParams()
+  if (params.q) p.set('q', params.q)
+  if (params.status) p.set('status', params.status)
+  if (params.offset) p.set('offset', String(params.offset))
+  if (params.limit) p.set('limit', String(params.limit))
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}

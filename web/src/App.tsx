@@ -169,7 +169,7 @@ export default function App() {
           </>
         )}
         {view === 'jobs' && (
-          <JobsPage jobs={jobs} loading={initial.isPending} selectedId={selected} onSelect={setSelected} onCancel={(id) => cancel.mutate(id)} onDelete={(id) => remove.mutate(id)} />
+          <JobsPage jobs={jobs} loading={initial.isPending} filterable selectedId={selected} onSelect={setSelected} onCancel={(id) => cancel.mutate(id)} onDelete={(id) => remove.mutate(id)} />
         )}
         {view === 'config' && <ConfigPage onRun={(preset) => openPaletteWith(preset)} />}
       </main>

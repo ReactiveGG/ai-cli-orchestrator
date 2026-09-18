@@ -28,7 +28,8 @@ public record OrchestratorProperties(
         @DefaultValue Map<String, ModuleSettings> modules,
         @DefaultValue Status status,
         @DefaultValue Isolation isolation,
-        @DefaultValue Security security
+        @DefaultValue Security security,
+        @DefaultValue Retention retention
 ) {
     /**
      * @param model        model alias/name passed to the CLI ({@code --model}), null = CLI default
@@ -71,6 +72,18 @@ public record OrchestratorProperties(
      * @param requireToken          every /api request must present the API token (auto-generated per install)
      * @param token                 fixed token instead of the auto-generated one; empty = auto
      */
+    /**
+     * How much job history to keep on disk. Only finished jobs are ever pruned; the newest are kept.
+     *
+     * @param maxJobs finished jobs kept (0 = unlimited); the oldest beyond this are deleted with their logs
+     * @param maxAge  finished jobs older than this are deleted (zero = unlimited)
+     */
+    public record Retention(
+            @DefaultValue("200") int maxJobs,
+            @DefaultValue("30d") Duration maxAge
+    ) {
+    }
+
     public record Security(
             @DefaultValue("${user.home}") List<String> allowedWorkspaceRoots,
             @DefaultValue("true") boolean requireToken,

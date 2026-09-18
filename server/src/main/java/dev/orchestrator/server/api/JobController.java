@@ -6,6 +6,7 @@ import dev.orchestrator.server.job.JobEventLevel;
 import dev.orchestrator.server.job.JobRequest;
 import dev.orchestrator.server.job.JobService;
 import dev.orchestrator.server.job.JobSnapshot;
+import dev.orchestrator.server.job.JobStatus;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.http.MediaType;
@@ -28,9 +29,20 @@ public class JobController {
         this.jobs = jobs;
     }
 
+    /**
+     * Newest first. {@code q} matches command/target/preset/id, {@code status} filters exactly,
+     * {@code offset}/{@code limit} page; the total after filtering comes back in {@code X-Total-Count}.
+     */
     @GetMapping
-    public List<JobSnapshot> list() {
-        return jobs.list();
+    public org.springframework.http.ResponseEntity<List<JobSnapshot>> list(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) JobStatus status,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "0") int limit
+    ) {
+        return org.springframework.http.ResponseEntity.ok()
+                .header("X-Total-Count", Integer.toString(jobs.count(q, status)))
+                .body(jobs.list(q, status, offset, limit));
     }
 
     @PostMapping
@@ -94,7 +106,20 @@ public class JobController {
 
     /** SSE: replays events after {@code after}, then streams live {@code log} and {@code job} events. */
     @GetMapping(value = "/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter events(@PathVariable String id, @RequestParam(defaultValue = "0") long after) {
-        return jobs.subscribe(id, after);
+    public SseEmitter events(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") long after,
+            @org.springframework.web.bind.annotation.RequestHeader(value = "Last-Event-ID", required = false) String lastEventId
+    ) {
+        // Browsers send Last-Event-ID on their own reconnect; the web client sends ?after= when it reopens a stale stream.
+        long resume = after;
+        if (lastEventId != null && !lastEventId.isBlank()) {
+            try {
+                resume = Math.max(resume, Long.parseLong(lastEventId.trim()));
+            } catch (NumberFormatException ignored) {
+                // not ours; replay from `after`
+            }
+        }
+        return jobs.subscribe(id, resume);
     }
 }

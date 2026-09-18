@@ -132,6 +132,15 @@ public final class JobEventBus {
         }
     }
 
+    /** Pushes a fresh full list to every dashboard/list subscriber (after pruning, when jobs vanish without a job event). */
+    public void publishJobs(List<JobSnapshot> current) {
+        for (SseEmitter emitter : global) {
+            if (!send(emitter, SseEmitter.event().name("jobs").data(current))) {
+                global.remove(emitter);
+            }
+        }
+    }
+
     public void completeJob(String jobId) {
         List<SseEmitter> list = perJob.remove(jobId);
         if (list != null) {
