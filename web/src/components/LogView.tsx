@@ -4,9 +4,10 @@ import { formatTime } from '../lib/format'
 import { withToken } from '../lib/api'
 
 /** Two tabs over one event stream: 요약 (SUMMARY) and 상세 (DETAIL). */
-export function LogView({ events, jobId, queued = false }: { events: JobEvent[]; jobId: string; queued?: boolean }) {
+/** `followDefault`: the jobs tab follows the tail (you are watching the run); the dashboard's short view does not. */
+export function LogView({ events, jobId, queued = false, followDefault = true }: { events: JobEvent[]; jobId: string; queued?: boolean; followDefault?: boolean }) {
   const [level, setLevel] = useState<LogLevel>('SUMMARY')
-  const [follow, setFollow] = useState(true)
+  const [follow, setFollow] = useState(followDefault)
   const [filter, setFilter] = useState('')
   const bottom = useRef<HTMLDivElement>(null)
 

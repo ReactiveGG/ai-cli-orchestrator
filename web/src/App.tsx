@@ -183,7 +183,7 @@ export default function App() {
           <>
             <DashboardPage jobs={jobs} />
             <div className="text-sm font-semibold">최근 작업</div>
-            <JobsPage jobs={jobs.slice(0, 8)} loading={initial.isPending} selectedId={selected} onSelect={(id) => setSelected(id)} onCancel={(id) => cancel.mutate(id)} onDelete={(id) => remove.mutate(id)} />
+            <JobsPage jobs={jobs.slice(0, 8)} loading={initial.isPending} followLogs={false} selectedId={selected} onSelect={(id) => setSelected(id)} onCancel={(id) => cancel.mutate(id)} onDelete={(id) => remove.mutate(id)} />
           </>
         )}
         {view === 'jobs' && (
