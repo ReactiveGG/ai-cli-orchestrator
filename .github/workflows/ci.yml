@@ -3,10 +3,11 @@ name: CI
 on:
   push:
     branches: [main, "feat/**", "fix/**", "test/**", "docs/**", "chore/**", "refactor/**"]
+    tags: ["v*"]
   pull_request:
 
 permissions:
-  contents: read
+  contents: write   # windows-app attaches the package to releases on v* tags
 
 jobs:
   java:
@@ -60,3 +61,52 @@ jobs:
         with:
           name: web-dist
           path: web/dist
+
+  windows-app:
+    name: Windows app (jpackage)
+    runs-on: windows-latest
+    needs: web    # reuse the Linux-built bundle: the lockfile has no Windows rolldown binding for npm ci on Windows
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download web bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Package app image (no installer toolchain needed)
+        run: ./gradlew :server:jpackage -PskipWeb --console=plain --no-daemon
+      - name: Zip app image
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem server/build/jpackage -Directory | Select-Object -First 1
+          Compress-Archive -Path $dir.FullName -DestinationPath "AI-CLI-Orchestrator-windows-x64.zip"
+          Get-Item AI-CLI-Orchestrator-windows-x64.zip | Format-List Name, Length
+      - name: Package MSI installer (WiX on the runner)
+        id: msi
+        continue-on-error: true
+        run: ./gradlew :server:jpackage -PskipWeb -PjpackageType=msi --console=plain --no-daemon
+      - name: Collect MSI
+        if: steps.msi.outcome == 'success'
+        shell: pwsh
+        run: Get-ChildItem server/build/jpackage -Filter *.msi | Copy-Item -Destination . ; Get-ChildItem *.msi | Format-List Name, Length
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: AI-CLI-Orchestrator-windows
+          path: |
+            AI-CLI-Orchestrator-windows-x64.zip
+            *.msi
+          if-no-files-found: error
+      - name: Release (v* tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            AI-CLI-Orchestrator-windows-x64.zip
+            *.msi
+          generate_release_notes: true

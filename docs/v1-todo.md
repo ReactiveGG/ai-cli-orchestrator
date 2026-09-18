@@ -123,6 +123,7 @@
 - [x] `bootJar`로 단일 jar 실행 문서화 (README·운영 가이드, jar 기동·UI·API 응답 확인)
 - [x] 실행 스크립트 (`run.sh` / `run.cmd`)
 - [x] IntelliJ 실행 구성: `.run/` 공유 구성(bootRun, ServerApplication 디버그, 테스트) + README 안내
+- [x] Windows 앱: `:server:jpackage`(런타임 동봉 앱 폴더 / `-PjpackageType=msi`), 데스크톱 모드(브라우저 자동 열기, 트레이 열기·종료, 중복 실행 시 브라우저만), CI windows-app 잡이 zip·msi 산출물 업로드, `v*` 태그면 릴리스 첨부
 
 ### 13. 문서
 - [x] README (구성, 프리셋, 실행, API)
