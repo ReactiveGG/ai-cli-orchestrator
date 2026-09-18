@@ -79,6 +79,10 @@ java -jar server/build/libs/server-0.1.0.jar --orchestrator.workspace=/path/to/p
 
 jar 하나에 서버와 웹 UI가 들어 있어 JDK 21만 있는 PC에 복사해 바로 띄울 수 있다. 인자는 `run.sh`와 같다.
 
+### Windows 앱으로 실행 (설치형, Java 불필요)
+
+GitHub Actions의 **Windows app (jpackage)** 잡이 `AI-CLI-Orchestrator-windows-x64.zip`(앱 폴더)과, 러너에 WiX가 있으면 `.msi` 설치 파일을 만든다. `v*` 태그를 푸시하면 GitHub 릴리스에 자동으로 붙는다. zip은 풀어서 `AI CLI Orchestrator.exe`를 실행하면 되고, msi는 설치 후 시작 메뉴에서 연다. 실행하면 서버가 뜨고 기본 브라우저에 http://localhost:47120 이 열리며, 트레이 아이콘의 "대시보드 열기 / 종료"로 다룬다. 이미 떠 있는데 아이콘을 또 누르면 브라우저만 다시 연다. 서버 로그는 `%USERPROFILE%\.ai-orchestrator\server.log`에 쌓인다. 직접 만들려면 Windows에서 `gradlew.bat :server:jpackage`(zip용 앱 폴더) 또는 `-PjpackageType=msi`.
+
 ### IntelliJ에서 실행
 
 `.run/` 폴더에 공유 실행 구성이 들어 있어 프로젝트를 Gradle 프로젝트로 열면 실행 목록에 바로 나타난다. Community Edition에서도 된다.

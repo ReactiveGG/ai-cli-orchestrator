@@ -8,6 +8,7 @@
 |---|---|---|
 | 스크립트 | `run.cmd` (Windows) / `./run.sh` (Linux·macOS·WSL) | 평소. 소스에서 바로 실행, 인자는 그대로 서버에 전달 |
 | 단일 jar | `./gradlew :server:bootJar -PskipWeb` → `java -jar server/build/libs/server-0.1.0.jar` | 다른 PC에 복사해 실행. jar 하나에 서버와 웹 UI(`web/dist`)가 들어 있다(약 25MB) |
+| Windows 앱 | CI 산출물 `AI-CLI-Orchestrator-windows-x64.zip` 또는 `.msi` (릴리스 태그 `v*`에 첨부) | Java 설치 없이 쓰는 PC. 실행하면 브라우저가 열리고 트레이 아이콘으로 열기·종료. 로그는 `~/.ai-orchestrator/server.log` |
 | IntelliJ | 실행 구성 `server: bootRun (47120)` | IDE에서. `.run/` 폴더에 공유 구성이 있어 프로젝트를 열면 바로 보인다 |
 | IntelliJ 디버그 | 실행 구성 `server: ServerApplication (debug)` | 브레이크포인트가 필요할 때. Program arguments에 `--orchestrator.workspace=...` |
 | 테스트 | `./gradlew test -PskipWeb` 또는 실행 구성 `tests: gradlew test -PskipWeb` | CI와 같은 명령 |
