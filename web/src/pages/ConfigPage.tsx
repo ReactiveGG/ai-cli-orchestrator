@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
-import { Copy, GripVertical, Play, Plus, Trash2, X } from 'lucide-react'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, pointerWithin, rectIntersection, type CollisionDetection, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { Copy, GripVertical, Plus, Save, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AgentDto, FlowConfig, FlowDto, StageDto } from '../lib/types'
 import { FlowDiagram, type FlowStep } from '../components/FlowDiagram'
@@ -23,7 +23,13 @@ const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
  * (1-1-2-1 = two reviewers cross-check, 1-3-3-1 = three implementations, three
  * reviews, the verifier picks one). The same model may be dropped several times.
  */
-export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
+/** Drop only where the pointer actually is; the closest-center fallback used to "drop" a barely-moved block into the nearest column. */
+const dropWherePointerIs: CollisionDetection = (args) => {
+  const within = pointerWithin(args)
+  return within.length ? within : rectIntersection(args)
+}
+
+export function ConfigPage() {
   const qc = useQueryClient()
   const routing = useQuery({ queryKey: ['routing'], queryFn: api.routing })
   const catalog = useQuery({ queryKey: ['catalog'], queryFn: api.catalog })
@@ -53,7 +59,7 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
   const save = useMutation({ mutationFn: () => api.saveRouting(cfg!), onSuccess: (d) => adopt(d, '저장했습니다. 새 작업부터 적용됩니다.'), onError: (e: Error) => setMessage(`저장 실패: ${errorMessage(e)}`) })
   const reset = useMutation({ mutationFn: () => api.resetRouting(), onSuccess: (d) => adopt(d, '기본 프리셋 3개로 초기화했습니다.'), onError: (e: Error) => setMessage(`초기화 실패: ${errorMessage(e)}`) })
   const showYaml = async () => { if (yaml) { setYaml(null); return } try { setYaml(await api.routingYaml()) } catch (e) { setMessage(`YAML을 불러오지 못했습니다: ${errorMessage(e)}`) } }
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))   // a click is not a drag
 
   const updatePreset = (fn: (p: FlowDto) => FlowDto) => setCfg((c) => c && ({ ...c, flows: { ...c.flows, [selected]: fn(structuredClone(c.flows[selected])) } }))
   const setModels = (si: number, fn: (models: AgentDto[]) => AgentDto[]) => updatePreset((p) => { p.stages[si].models = fn(p.stages[si].models.map((a) => ({ ...a }))); return p })
@@ -72,22 +78,35 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
   }
 
   const plan = useMemo<FlowStep[]>(() => (preset && cfg ? buildPlan(preset, cfg) : []), [preset, cfg])
+  const dirty = useMemo(() => !!cfg && !!routing.data && JSON.stringify(cfg) !== JSON.stringify(normalize(routing.data)), [cfg, routing.data])
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
   if (!cfg) {
     if (routing.isError) return <ErrorBox title="프리셋 구성을 불러오지 못했습니다" message={errorMessage(routing.error)} onRetry={() => routing.refetch()} />
     return <Loading label="프리셋 구성 불러오는 중…" />
   }
 
+  // The typed name is the label (Korean is fine); the id is an ASCII slug for YAML keys, URLs and `--preset`.
   const addPreset = () => {
-    const name = newPreset.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')
-    if (!name || cfg.flows[name]) return
+    const labelText = newPreset.trim()
+    if (!labelText) { setMessage('프리셋 이름을 입력하세요.'); return }
+    let name = labelText.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+    if (!name) name = `preset-${Object.keys(cfg.flows).length + 1}`
+    let unique = name; let k = 2
+    while (cfg.flows[unique]) unique = `${name}-${k++}`
     const base = cfg.flows[selected] ?? emptyPreset(modules[0] ?? 'claude')
-    setCfg({ ...cfg, flows: { ...cfg.flows, [name]: { ...structuredClone(base), label: newPreset.trim() } } }); setSelected(name); setNewPreset('')
+    setCfg({ ...cfg, flows: { ...cfg.flows, [unique]: { ...structuredClone(base), label: labelText } } }); setSelected(unique); setNewPreset('')
+    setMessage(`'${labelText}' 프리셋을 추가했습니다 (id: ${unique}). 단계를 고친 뒤 저장하세요.`)
   }
   const duplicate = () => { let n = `${selected}-copy`; let k = 2; while (cfg.flows[n]) n = `${selected}-copy${k++}`; setCfg({ ...cfg, flows: { ...cfg.flows, [n]: { ...structuredClone(cfg.flows[selected]), label: `${cfg.flows[selected].label ?? selected} (복사)` } } }); setSelected(n) }
   const remove = () => { if (Object.keys(cfg.flows).length <= 1) { setMessage('프리셋은 최소 1개 필요합니다.'); return } const f = { ...cfg.flows }; delete f[selected]; setCfg({ ...cfg, flows: f }); setSelected(Object.keys(f)[0]) }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e: DragStartEvent) => setDragging(String(e.active.id))} onDragEnd={onDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={dropWherePointerIs} onDragStart={(e: DragStartEvent) => setDragging(String(e.active.id))} onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="min-w-0 space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
@@ -101,7 +120,7 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
               ))}
             </div>
             <div className="mt-2 flex gap-1">
-              <input value={newPreset} onChange={(e) => setNewPreset(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPreset()} placeholder="새 프리셋 이름" className="min-w-0 flex-1 rounded border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-700" />
+              <input value={newPreset} onChange={(e) => setNewPreset(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && addPreset()} placeholder="새 프리셋 이름 (한글 가능)" className="min-w-0 flex-1 rounded border border-slate-300 bg-transparent px-2 py-1 text-xs dark:border-slate-700" />
               <button onClick={addPreset} className="rounded border border-slate-300 px-2 text-xs dark:border-slate-700" title="현재 프리셋을 복사해 추가"><Plus size={14} /></button>
             </div>
           </div>
@@ -134,7 +153,8 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
                   </select>
                 </label>
                 <div className="ml-auto flex gap-1">
-                  <button onClick={() => onRun(selected)} className="flex items-center gap-1 rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-700"><Play size={14} /> 이 프리셋으로 실행</button>
+                  {dirty && <span className="self-center rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900 dark:text-amber-200">저장 안 됨</span>}
+                  <button onClick={() => save.mutate()} disabled={save.isPending || !dirty} className="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700 disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"><Save size={14} /> {save.isPending ? '저장 중…' : '프리셋 저장'}</button>
                   <button onClick={duplicate} title="복제" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700"><Copy size={14} /></button>
                   <button onClick={remove} title="삭제" className="rounded-md border border-slate-300 px-2 py-1.5 text-sm text-rose-600 dark:border-slate-700"><Trash2 size={14} /></button>
                 </div>
@@ -184,7 +204,7 @@ export function ConfigPage({ onRun }: { onRun: (preset: string) => void }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => save.mutate()} disabled={save.isPending} className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">{save.isPending ? '저장 중…' : '프리셋 저장 및 적용'}</button>
+            <button onClick={() => save.mutate()} disabled={save.isPending || !dirty} className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900">{save.isPending ? '저장 중…' : dirty ? '프리셋 저장 및 적용' : '저장됨'}</button>
             <button onClick={() => reset.mutate()} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">기본 프리셋으로 (1-1-1-1 · 1-1-2-1 · 1-3-3-1)</button>
             <button onClick={showYaml} className="rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700">{yaml ? 'YAML 닫기' : '저장된 YAML 보기'}</button>
             <Message text={message} />
