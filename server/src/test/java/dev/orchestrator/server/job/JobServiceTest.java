@@ -166,6 +166,10 @@ class JobServiceTest {
             String b = await(keepTwo, keepTwo.submit(new ExecutionRequest("default", "b", List.of(), "ko")).id()).id();
             Thread.sleep(5);
             String c = await(keepTwo, keepTwo.submit(new ExecutionRequest("default", "c", List.of(), "ko")).id()).id();
+            // prune() runs on the worker thread right after the job is marked finished; give it a moment (Windows CI raced here)
+            for (int i = 0; i < 100 && keepTwo.list().size() > 2; i++) {
+                Thread.sleep(20);
+            }
             assertEquals(List.of(c, b), keepTwo.list().stream().map(JobSnapshot::id).toList(), "oldest finished job pruned after c finished");
             assertFalse(Files.exists(tempDir.resolve("jobs").resolve(a)), "its directory is gone");
             assertTrue(Files.exists(tempDir.resolve("jobs").resolve(c)));

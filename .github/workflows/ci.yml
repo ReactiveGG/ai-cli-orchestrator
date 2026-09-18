@@ -65,18 +65,14 @@ jobs:
   windows-app:
     name: Windows app (jpackage)
     runs-on: windows-latest
+    needs: web    # reuse the Linux-built bundle: the lockfile has no Windows rolldown binding for npm ci on Windows
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Download web bundle
+        uses: actions/download-artifact@v4
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Build web UI
-        working-directory: web
-        run: |
-          npm ci
-          npm run build
+          name: web-dist
+          path: web/dist
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

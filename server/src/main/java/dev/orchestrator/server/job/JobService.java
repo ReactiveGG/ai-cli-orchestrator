@@ -118,7 +118,7 @@ public class JobService {
                 futures.remove(job.id());
                 store.delete(job.id());
                 removed++;
-            } catch (IOException e) {
+            } catch (IOException | java.io.UncheckedIOException e) {
                 log.warn("Could not delete old job {}: {}", job.id(), e.toString());
             }
         }
