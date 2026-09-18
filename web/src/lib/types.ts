@@ -129,6 +129,9 @@ export interface RateLimitInfo {
   observedAt: string
 }
 
+export interface DirEntry { name: string; path: string; gitRepo: boolean }
+export interface DirListing { path: string; parent: string | null; dirs: DirEntry[]; roots: DirEntry[]; allowed: boolean; error: string | null }
+
 export interface Dashboard {
   usage: {
     today: TokenUsage

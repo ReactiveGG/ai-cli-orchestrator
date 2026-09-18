@@ -64,8 +64,7 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-2 pt-[6vh] sm:p-4 sm:pt-[10vh]" onClick={onClose}>
       <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
-        <Command shouldFilter={false} loop>
-          <div className="border-b border-slate-200 p-3 dark:border-slate-800">
+        <div className="border-b border-slate-200 p-3 dark:border-slate-800">
             <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs">
               <span className="mr-1 text-slate-500">프리셋</span>
               {presets.map((p) => (
@@ -82,23 +81,24 @@ export function CommandPalette({ open, initialPreset, onClose, onSubmitted }: {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
+                // Shift+Enter = new line (one line per job); plain Enter = run. Outside cmdk so nothing swallows the keys.
                 if (e.key === 'Tab' && suggestions.length) { e.preventDefault(); apply(suggestions[0].value) }
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit.mutate() }
-                if (e.key === 'Escape') onClose()
+                else if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit.mutate() }
+                else if (e.key === 'Escape') onClose()
               }}
               rows={Math.min(6, Math.max(2, lines.length + 1))}
-              placeholder={'"jwt refresh token flow" --focus security\nsrc/auth/ --focus architecture     (Shift+Enter로 줄 추가 = 작업 여러 개)'}
+              placeholder={'무엇을 할까요? 파일 경로나 요청 문장을 적으세요\n예: "로그인 만료 검사 추가" 또는 src/auth/'}
               className="mono w-full resize-none bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
-            <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-              {active && <span>{active.label} {active.signature}: {active.description}</span>}
-              <span className="ml-auto text-slate-400">Enter 실행 · Tab 자동완성 · Esc 닫기</span>
+            <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+              <span>Enter 실행 · Shift+Enter 줄바꿈(줄마다 작업 하나) · Esc 닫기</span>
             </div>
-          </div>
+        </div>
+        <Command shouldFilter={false} loop>
 
           <Command.List className="max-h-56 overflow-auto p-2">
             {catalog.isLoading && <Command.Loading>불러오는 중…</Command.Loading>}
-            {suggestions.length === 0 && <div className="px-2 py-3 text-sm text-slate-400">대상(파일 경로나 요청 문장)을 입력하세요. 옵션: --focus, --language, --preset</div>}
+            {suggestions.length === 0 && <div className="px-2 py-3 text-xs text-slate-400">{active ? `${active.label} ${active.signature} · ${active.description}` : ''}<span className="ml-2 text-slate-300 dark:text-slate-600">옵션이 필요하면 <span className="mono">--</span>를 입력하세요</span></div>}
             {suggestions.map((s) => (
               <Command.Item key={s.value + s.label} value={s.value + s.label} onSelect={() => apply(s.value)} className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 text-sm">
                 <span className="mono min-w-28 text-sky-700 dark:text-sky-300">{s.value}</span>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderOpen, Save } from 'lucide-react'
+import { FolderPicker } from './FolderPicker'
 import { api } from '../lib/api'
 import type { Settings } from '../lib/types'
 import { ErrorBox, Loading, Message } from './Feedback'
@@ -17,12 +18,7 @@ export function SettingsPanel() {
   const [draft, setDraft] = useState<Settings | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   useEffect(() => { if (query.data && !draft) setDraft(structuredClone(query.data)) }, [query.data, draft])
-  // The dialog opens on the machine the server runs on (this is a local tool, so: this desktop) and blocks until chosen.
-  const browse = useMutation({
-    mutationFn: (initial: string) => api.browseFolder(initial),
-    onSuccess: (r) => { if (r.path) { setDraft((cur) => cur ? { ...cur, workspace: r.path! } : cur); setMessage(`폴더를 선택했습니다: ${r.path} — "설정 저장"을 눌러야 적용됩니다.`) } else setMessage('폴더 선택을 취소했습니다.') },
-    onError: (e: Error) => setMessage(`폴더 대화상자를 열지 못했습니다: ${errorMessage(e)}`),
-  })
+  const [picking, setPicking] = useState(false)
 
   const save = useMutation({
     mutationFn: () => api.saveSettings(draft!),
@@ -58,9 +54,10 @@ export function SettingsPanel() {
         <label className={label}>작업 공간 (AI가 읽고 수정하는 프로젝트 경로)
           <span className="flex gap-1">
             <input value={d.workspace} onChange={(e) => set({ workspace: e.target.value })} className={`${input} mono min-w-0 flex-1`} />
-            <button type="button" onClick={() => browse.mutate(d.workspace)} disabled={browse.isPending} title="폴더 선택 창 열기 (서버가 도는 PC의 탐색 창)" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-              <FolderOpen size={14} /> {browse.isPending ? '선택 창 열림…' : '찾아보기'}
+            <button type="button" onClick={() => setPicking(true)} title="서버 PC의 폴더를 화면에서 고릅니다" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded border border-slate-300 px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+              <FolderOpen size={14} /> 찾아보기
             </button>
+            {picking && <FolderPicker initial={d.workspace} onPick={(path) => { set({ workspace: path }); setPicking(false); setMessage(`폴더를 선택했습니다: ${path} — "설정 저장"을 눌러야 적용됩니다.`) }} onClose={() => setPicking(false)} />}
           </span>
         </label>
         <label className={label}>동시 실행 수

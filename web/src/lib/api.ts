@@ -1,5 +1,5 @@
 import type {
-  Catalog, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
+  Catalog, DirListing, Dashboard, FlowConfig, Job, JobEvent, JobRequest, LogLevel, PlanStep, Settings, StatusReport,
 } from './types'
 import { mockApi, mockSubscribe } from './mock'
 import { humanize } from './errors'
@@ -10,12 +10,15 @@ export const MOCK = import.meta.env.VITE_MOCK === '1'
 // ---- API token: generated per install, handed only to this same-origin page via /api/session.
 let token: string | null = null
 let tokenPromise: Promise<string> | null = null
+/** Server version from /api/session ("dev" outside a packaged build); '' until fetched. */
+export let serverVersion = ''
 async function ensureToken(): Promise<string> {
   if (MOCK) return ''
   if (token !== null) return token
   tokenPromise ??= fetch('/api/session').then(async (r) => {
     const j = r.ok ? await r.json() : { tokenRequired: false, token: '' }
     token = j.tokenRequired ? String(j.token) : ''
+    serverVersion = j.version ? String(j.version) : ''
     return token
   }).catch(() => { token = ''; return '' })
   return tokenPromise
@@ -79,6 +82,8 @@ const realApi = {
   routingYaml: async () => { const t = await ensureToken(); return (await fetch('/api/config/routing.yaml', { headers: t ? { 'X-Orchestrator-Token': t } : {} })).text() },
   settings: () => request<Settings>('/api/config/settings'),
   saveSettings: (body: Settings) => request<Settings>('/api/config/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  /** Directory listing for the in-page folder picker (allowed workspace roots only). */
+  listDirs: (path?: string) => request<DirListing>(`/api/fs/dirs${path ? `?path=${encodeURIComponent(path)}` : ''}`),
   /** Opens the OS folder dialog on the server's desktop; resolves to null when the user cancels. */
   browseFolder: (initial: string) => request<{ path: string | null; backend: string }>('/api/config/settings/browse', { method: 'POST', body: JSON.stringify({ initial }) }),
 }
