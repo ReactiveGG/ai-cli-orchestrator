@@ -8,9 +8,11 @@ import { Loading } from '../components/Feedback'
 const PAGE = 30
 const STATUSES: JobStatus[] = ['RUNNING', 'QUEUED', 'SUCCEEDED', 'FAILED', 'TIMEOUT', 'CANCELLED']
 
-export function JobsPage({ jobs, loading = false, filterable = false, selectedId, onSelect, onCancel, onDelete }: {
+export function JobsPage({ jobs, loading = false, filterable = false, followLogs = true, selectedId, onSelect, onCancel, onDelete }: {
   jobs: Job[]
   loading?: boolean
+  /** default of the log "따라가기" checkbox: on in the jobs tab, off on the dashboard */
+  followLogs?: boolean
   /** Search box, status filter and paging (the full history view; the dashboard shows a short list without them). */
   filterable?: boolean
   selectedId: string | null
@@ -52,7 +54,7 @@ export function JobsPage({ jobs, loading = false, filterable = false, selectedId
       </div>
       <div className="min-w-0 lg:min-h-[480px]">
         {selectedId ? (
-          <JobDetail jobId={selectedId} onCancel={onCancel} onBack={() => onSelect(null)} />
+          <JobDetail jobId={selectedId} onCancel={onCancel} onBack={() => onSelect(null)} followLogs={followLogs} />
         ) : (
           <div className="flex h-full min-h-40 items-center justify-center rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-400 lg:min-h-[480px] dark:border-slate-700">
             {jobs.length ? '작업을 선택하면 프로세스 흐름과 로그가 표시됩니다' : '명령을 실행하면 여기에 프로세스 흐름과 로그가 표시됩니다'}

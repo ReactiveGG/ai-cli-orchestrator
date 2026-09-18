@@ -11,7 +11,7 @@ import { errorMessage } from '../lib/errors'
 import { formatCost, formatDuration, formatTokens } from '../lib/format'
 import { useNow } from '../lib/useNow'
 
-export function JobDetail({ jobId, onCancel, onBack }: { jobId: string; onCancel: (id: string) => void; onBack?: () => void }) {
+export function JobDetail({ jobId, onCancel, onBack, followLogs = true }: { jobId: string; onCancel: (id: string) => void; onBack?: () => void; followLogs?: boolean }) {
   const initial = useQuery({ queryKey: ['job', jobId], queryFn: () => api.job(jobId), retry: false })
   const [job, setJob] = useState<Job | null>(null)
   const [events, setEvents] = useState<JobEvent[]>([])
@@ -91,7 +91,7 @@ export function JobDetail({ jobId, onCancel, onBack }: { jobId: string; onCancel
       </div>
       <CandidatePanel job={current} />
       <div className="min-h-64 flex-1">
-        <LogView events={events} jobId={current.id} queued={current.status === 'QUEUED'} />
+        <LogView events={events} jobId={current.id} queued={current.status === 'QUEUED'} followDefault={followLogs} />
       </div>
       {current.result && (
         <div className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
