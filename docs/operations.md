@@ -76,6 +76,7 @@ java -jar server-0.1.3.jar --orchestrator.workspace=C:\dev\my-service
 | 후보 적용 실패 (`git apply`) | 작업 공간이 기준 커밋에서 바뀌었음. 작업 상세 "patch"로 diff를 받아 수동 적용하거나 변경을 커밋한 뒤 "이 후보 적용" |
 | WSL에서 띄웠는데 Windows 브라우저에서 안 열림 | JVM이 IPv6 매핑 주소에 바인딩해 WSL 포워딩이 안 됨. `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true ./run.sh` |
 | 작업 목록에서 옛 작업이 안 보임 | 보존 한도(기본 200개·30일)를 넘어 정리됨. 작업 화면의 검색·상태 필터로 먼저 찾아보고, 더 오래 보관하려면 `retention` 값을 올린다 |
+| Windows 앱 실행 시 "Windows의 PC 보호" 경고 | 서명 없는 exe에 대한 SmartScreen 경고. "추가 정보 → 실행", 또는 zip 풀기 전에 우클릭 → 속성 → "차단 해제"(PowerShell `Unblock-File`). README의 Windows 앱 절 참고 |
 | 화면이 옛 버전으로 보임 | 서버는 `index.html`을 항상 재검증하도록 보내지만, 프록시가 끼면 Ctrl+F5. `web/dist`를 다시 빌드했으면 서버 재시작 |
 
 ## 5. 백업·초기화
