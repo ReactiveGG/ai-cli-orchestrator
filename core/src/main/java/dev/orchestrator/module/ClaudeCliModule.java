@@ -101,6 +101,7 @@ public final class ClaudeCliModule extends CliAiModule {
             case "rate_limit_event" -> {
                 JsonNode info = event.path("rate_limit_info");
                 String status = info.path("status").asText("");
+                context.rateLimit(parseRateLimit(info));
                 if (!status.isEmpty() && !"allowed".equals(status)) {
                     context.summary("경고: rate limit " + status + (info.hasNonNull("resetsAt") ? " (해제 " + info.path("resetsAt").asText() + ")" : ""));
                 }
@@ -147,6 +148,38 @@ public final class ClaudeCliModule extends CliAiModule {
             }
         }
         return "";
+    }
+
+    /** {@code rate_limit_info}: status, rateLimitType, resetsAt and unifiedWindows.{five_hour,seven_day}.{utilization,resetsAt}. */
+    static dev.orchestrator.domain.RateLimitInfo parseRateLimit(JsonNode info) {
+        JsonNode windows = info.path("unifiedWindows");
+        JsonNode five = windows.path("five_hour");
+        JsonNode seven = windows.path("seven_day");
+        java.time.Instant fallbackReset = instantOf(info.get("resetsAt"));
+        return new dev.orchestrator.domain.RateLimitInfo(
+                info.path("status").asText(null),
+                five.hasNonNull("utilization") ? five.path("utilization").asDouble() : null,
+                five.hasNonNull("resetsAt") ? instantOf(five.get("resetsAt")) : fallbackReset,
+                seven.hasNonNull("utilization") ? seven.path("utilization").asDouble() : null,
+                seven.hasNonNull("resetsAt") ? instantOf(seven.get("resetsAt")) : null,
+                info.hasNonNull("rateLimitType") ? info.path("rateLimitType").asText() : null,
+                java.time.Instant.now());
+    }
+
+    /** Accepts epoch seconds, epoch millis or ISO-8601 text. */
+    static java.time.Instant instantOf(JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return null;
+        }
+        try {
+            if (node.isNumber()) {
+                long v = node.asLong();
+                return v > 100_000_000_000L ? java.time.Instant.ofEpochMilli(v) : java.time.Instant.ofEpochSecond(v);
+            }
+            return java.time.Instant.parse(node.asText());
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private static String describeError(String subtype) {

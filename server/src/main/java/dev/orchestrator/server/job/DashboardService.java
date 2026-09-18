@@ -26,16 +26,20 @@ public class DashboardService {
             int concurrency,
             int running,
             List<JobSnapshot> recentJobs,
-            Instant generatedAt
+            Instant generatedAt,
+            /** latest subscription windows from a rate_limit_event, null until a real Claude run reported one */
+            dev.orchestrator.domain.RateLimitInfo subscription
     ) {
     }
 
     private final JobService jobs;
     private final ClaudeStatusService status;
+    private final dev.orchestrator.server.status.SubscriptionUsage subscription;
 
-    public DashboardService(JobService jobs, ClaudeStatusService status) {
+    public DashboardService(JobService jobs, ClaudeStatusService status, dev.orchestrator.server.status.SubscriptionUsage subscription) {
         this.jobs = jobs;
         this.status = status;
+        this.subscription = subscription;
     }
 
     public Dashboard build() {
@@ -88,7 +92,8 @@ public class DashboardService {
                 jobs.concurrency(),
                 jobs.runningCount(),
                 all.stream().limit(10).toList(),
-                Instant.now()
+                Instant.now(),
+                subscription.latest()
         );
     }
 }

@@ -467,6 +467,11 @@ public final class ExecutionManager {
         }
 
         @Override
+        public void rateLimit(dev.orchestrator.domain.RateLimitInfo info) {
+            observer.onRateLimit(step, info);
+        }
+
+        @Override
         public boolean isCancelled() {
             return cancelled.getAsBoolean();
         }

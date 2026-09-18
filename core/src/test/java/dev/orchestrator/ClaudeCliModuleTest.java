@@ -72,10 +72,13 @@ class ClaudeCliModuleTest {
         return context(summary, detail, AgentOptions.NONE);
     }
 
+    private static final List<dev.orchestrator.domain.RateLimitInfo> RATE_LIMITS = new ArrayList<>();
+
     private static ExecutionContext context(List<String> summary, List<String> detail, AgentOptions options) {
         return new ExecutionContext() {
             @Override public void detail(String line) { detail.add(line); }
             @Override public void summary(String line) { summary.add(line); }
+            @Override public void rateLimit(dev.orchestrator.domain.RateLimitInfo info) { RATE_LIMITS.add(info); }
             @Override public boolean isCancelled() { return false; }
             @Override public Duration timeout() { return Duration.ofSeconds(10); }
             @Override public Duration idleWarning() { return Duration.ofSeconds(10); }
@@ -130,6 +133,43 @@ class ClaudeCliModuleTest {
         String argv = detail.stream().filter(l -> l.contains("\"argv\"")).findFirst().orElseThrow();
         assertTrue(argv.contains("--model opus --effort high"), argv);
         assertTrue(!argv.contains("--model sonnet"), "agent model must win over the module default");
+    }
+
+    @Test
+    void rateLimitEventsReachTheContextWithBothWindows() throws IOException {
+        String stream = """
+                {"type":"system","subtype":"init","cwd":"/work","model":"claude-fable-5-1","permissionMode":"default","claude_code_version":"2.1.274"}
+                {"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","rateLimitType":"five_hour","resetsAt":1789700000,"unifiedWindows":{"five_hour":{"utilization":0.82,"resetsAt":1789700000},"seven_day":{"utilization":0.31,"resetsAt":"2026-09-24T00:00:00Z"}}}}
+                {"type":"result","subtype":"success","is_error":false,"result":"ok","num_turns":1,"total_cost_usd":0.01,"usage":{"input_tokens":1,"output_tokens":1},"permission_denials":[]}
+                """;
+        RATE_LIMITS.clear();
+        List<String> summary = new ArrayList<>();
+        ClaudeCliModule module = fakeClaude(stream, null, null);
+
+        module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(summary, new ArrayList<>()));
+
+        assertEquals(1, RATE_LIMITS.size());
+        dev.orchestrator.domain.RateLimitInfo info = RATE_LIMITS.get(0);
+        assertEquals("allowed_warning", info.status());
+        assertFalse(info.allowed());
+        assertEquals(0.82, info.fiveHourUtilization(), 1e-9);
+        assertEquals(java.time.Instant.ofEpochSecond(1789700000L), info.fiveHourResetsAt());
+        assertEquals(0.31, info.sevenDayUtilization(), 1e-9);
+        assertEquals(java.time.Instant.parse("2026-09-24T00:00:00Z"), info.sevenDayResetsAt());
+        assertEquals("five_hour", info.rateLimitType());
+        assertTrue(summary.stream().anyMatch(l -> l.contains("rate limit allowed_warning")), summary.toString());
+    }
+
+    @Test
+    void allowedRateLimitEventIsReportedWithoutAWarning() throws IOException {
+        RATE_LIMITS.clear();
+        List<String> summary = new ArrayList<>();
+        ClaudeCliModule module = fakeClaude(SUCCESS, null, null);
+
+        module.execute(prompt(false), new ExecutionRequest("default", "x", List.of(), "ko"), context(summary, new ArrayList<>()));
+
+        assertTrue(RATE_LIMITS.stream().anyMatch(i -> i.allowed() && i.fiveHourUtilization() == 0.02 && i.sevenDayUtilization() == null), RATE_LIMITS.toString());
+        assertFalse(summary.stream().anyMatch(l -> l.contains("rate limit")), "allowed → no warning line: " + summary);
     }
 
     @Test

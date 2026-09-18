@@ -32,6 +32,7 @@ java -jar server-0.1.0.jar --orchestrator.workspace=C:\dev\my-service
 ├── api-token            # 설치별 API 토큰 (자동 생성, 소유자만 읽기). 지우면 다음 시작 때 새로 만든다
 ├── orchestrator.yml     # 프리셋·역할·폴백 (구성 화면 "프리셋 저장 및 적용"이 쓰는 파일)
 ├── settings.yml         # 서버 설정 화면에서 저장한 값. application.yml 기본값보다 우선
+├── subscription-usage.json  # 마지막 Claude 실행이 보고한 구독 사용량 창(5시간/7일). 대시보드 타일 재료
 ├── jobs/<jobId>/
 │   ├── job.json         # 스냅샷 (상태, 단계, 토큰, 후보, 결정). 재시작 후 목록 복원에 쓴다
 │   ├── summary.log      # 요약 로그 (한 줄 = "시각 단계id 메시지", 단계 없는 줄은 "-")

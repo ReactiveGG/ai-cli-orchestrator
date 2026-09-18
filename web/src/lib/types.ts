@@ -114,6 +114,17 @@ export interface DailyUsage {
   jobs: number
 }
 
+/** Subscription usage windows from the CLI's rate_limit_event (utilization 0..1); null fields = not reported. */
+export interface RateLimitInfo {
+  status: string | null
+  fiveHourUtilization: number | null
+  fiveHourResetsAt: string | null
+  sevenDayUtilization: number | null
+  sevenDayResetsAt: string | null
+  rateLimitType: string | null
+  observedAt: string
+}
+
 export interface Dashboard {
   usage: {
     today: TokenUsage
@@ -127,6 +138,8 @@ export interface Dashboard {
   running: number
   recentJobs: Job[]
   generatedAt: string
+  /** null until a real Claude run reported its windows */
+  subscription: RateLimitInfo | null
 }
 
 export interface OptionSpec {
