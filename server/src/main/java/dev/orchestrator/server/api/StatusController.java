@@ -18,10 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class StatusController {
     private final ClaudeStatusService status;
     private final OrchestrationService orchestration;
+    private final dev.orchestrator.server.job.JobService jobs;
+    private final java.util.concurrent.atomic.AtomicBoolean watching = new java.util.concurrent.atomic.AtomicBoolean();
 
-    public StatusController(ClaudeStatusService status, OrchestrationService orchestration) {
+    public StatusController(ClaudeStatusService status, OrchestrationService orchestration, dev.orchestrator.server.job.JobService jobs) {
         this.status = status;
         this.orchestration = orchestration;
+        this.jobs = jobs;
     }
 
     /** Drops the cached probe (and rebuilds AUTO modules) so a fresh install or login shows up now, not in a minute. */
@@ -45,7 +48,40 @@ public class StatusController {
         }
         List<String> launch = terminalCommand(resolved.toString());
         new ProcessBuilder(launch).start();
+        watchForLogin();
         return Map.of("opened", true, "command", resolved + " auth login", "terminal", launch.get(0));
+    }
+
+    /**
+     * After the terminal opens, re-probe {@code claude auth status} every 2s for up to 5 minutes and,
+     * the moment it says logged in, push a {@code status} event to every open dashboard so the tile
+     * flips without a refresh.
+     */
+    private void watchForLogin() {
+        if (!watching.compareAndSet(false, true)) {
+            return;   // one watcher is enough
+        }
+        Thread t = new Thread(() -> {
+            try {
+                long deadline = System.currentTimeMillis() + 5 * 60_000L;
+                while (System.currentTimeMillis() < deadline) {
+                    Thread.sleep(2_000);
+                    status.invalidate();
+                    ClaudeStatusService.StatusReport report = status.report();
+                    boolean loggedIn = report.modules().stream().anyMatch(m -> "claude".equals(m.name()) && Boolean.TRUE.equals(m.loggedIn()));
+                    if (loggedIn) {
+                        jobs.broadcast("status", report);
+                        return;
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                watching.set(false);
+            }
+        }, "claude-login-watch");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** A visible terminal per OS; the user finishes the flow there and closes it. */

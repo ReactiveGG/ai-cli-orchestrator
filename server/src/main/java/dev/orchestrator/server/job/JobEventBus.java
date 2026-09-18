@@ -141,6 +141,15 @@ public final class JobEventBus {
         }
     }
 
+    /** Any non-job broadcast to dashboards (e.g. {@code status} after a login completes). */
+    public void publishGlobal(String eventName, Object data) {
+        for (SseEmitter emitter : global) {
+            if (!send(emitter, SseEmitter.event().name(eventName).data(data))) {
+                global.remove(emitter);
+            }
+        }
+    }
+
     public void completeJob(String jobId) {
         List<SseEmitter> list = perJob.remove(jobId);
         if (list != null) {
