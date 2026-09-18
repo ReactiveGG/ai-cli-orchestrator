@@ -7,7 +7,7 @@
 | 방법 | 명령 | 언제 |
 |---|---|---|
 | 스크립트 | `run.cmd` (Windows) / `./run.sh` (Linux·macOS·WSL) | 평소. 소스에서 바로 실행, 인자는 그대로 서버에 전달 |
-| 단일 jar | `./gradlew :server:bootJar -PskipWeb` → `java -jar server/build/libs/server-0.1.0.jar` | 다른 PC에 복사해 실행. jar 하나에 서버와 웹 UI(`web/dist`)가 들어 있다(약 25MB) |
+| 단일 jar | `./gradlew :server:bootJar -PskipWeb` → `java -jar server/build/libs/server-0.1.1.jar` | 다른 PC에 복사해 실행. jar 하나에 서버와 웹 UI(`web/dist`)가 들어 있다(약 25MB) |
 | Windows 앱 | CI 산출물 `AI-CLI-Orchestrator-windows-x64.zip` (약 60MB, 릴리스 태그 `v*`에 첨부) | Java 설치 없이 쓰는 PC. 실행하면 브라우저가 열리고 트레이 아이콘으로 열기·종료. 로그는 `~/.ai-orchestrator/server.log` |
 | IntelliJ | 실행 구성 `server: bootRun (47120)` | IDE에서. `.run/` 폴더에 공유 구성이 있어 프로젝트를 열면 바로 보인다 |
 | IntelliJ 디버그 | 실행 구성 `server: ServerApplication (debug)` | 브레이크포인트가 필요할 때. Program arguments에 `--orchestrator.workspace=...` |
@@ -19,7 +19,7 @@
 ./run.sh --orchestrator.workspace=/path/to/project     # AI가 읽고 고칠 프로젝트
 ./run.sh --server.port=47130                            # 포트 변경
 ./run.sh --orchestrator.data-dir=/other/dir             # 데이터 디렉터리 변경
-java -jar server-0.1.0.jar --orchestrator.workspace=C:\dev\my-service
+java -jar server-0.1.1.jar --orchestrator.workspace=C:\dev\my-service
 ```
 
 `buildDirBase`를 쓰는 환경(WSL, README 개발 메모 참고)에서는 jar가 `<buildDirBase>/server/libs/`에 생긴다.
