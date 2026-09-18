@@ -42,7 +42,8 @@ java -jar server-0.1.0.jar --orchestrator.workspace=C:\dev\my-service
 
 - 로그 파일은 화면의 "파일로 열기"로도 열린다. 요약 로그는 줄마다 flush되므로 실행 중에도 tail로 볼 수 있다.
 - 서버 자체 로그는 표준 출력으로만 나간다. 파일로 남기려면 `./run.sh > server.log 2>&1`처럼 리다이렉트하거나 `--logging.file.name=server.log`를 준다.
-- 작업을 지우면(화면 "삭제") `jobs/<jobId>`가 통째로 지워진다. 오래된 작업의 자동 정리는 아직 없다(v1-todo #4).
+- 작업을 지우면(화면 "삭제") `jobs/<jobId>`가 통째로 지워진다.
+- 끝난 작업은 `orchestrator.retention`(기본 최근 200개, 30일)을 넘으면 오래된 것부터 로그와 함께 자동 삭제된다. 서버 시작 때와 작업이 끝날 때마다 검사하며, 실행 중·대기 중인 작업은 지우지 않는다. 전부 보관하려면 `--orchestrator.retention.max-jobs=0 --orchestrator.retention.max-age=0`.
 
 ## 3. 설정 우선순위
 
@@ -69,6 +70,7 @@ java -jar server-0.1.0.jar --orchestrator.workspace=C:\dev\my-service
 | 경쟁 모드가 시작 전에 거부됨 | 작업 공간이 git 저장소가 아니거나 격리가 꺼짐. `git init`하거나 코더가 1개인 프리셋을 쓴다 |
 | 후보 적용 실패 (`git apply`) | 작업 공간이 기준 커밋에서 바뀌었음. 작업 상세 "patch"로 diff를 받아 수동 적용하거나 변경을 커밋한 뒤 "이 후보 적용" |
 | WSL에서 띄웠는데 Windows 브라우저에서 안 열림 | JVM이 IPv6 매핑 주소에 바인딩해 WSL 포워딩이 안 됨. `JAVA_TOOL_OPTIONS=-Djava.net.preferIPv4Stack=true ./run.sh` |
+| 작업 목록에서 옛 작업이 안 보임 | 보존 한도(기본 200개·30일)를 넘어 정리됨. 작업 화면의 검색·상태 필터로 먼저 찾아보고, 더 오래 보관하려면 `retention` 값을 올린다 |
 | 화면이 옛 버전으로 보임 | 서버는 `index.html`을 항상 재검증하도록 보내지만, 프록시가 끼면 Ctrl+F5. `web/dist`를 다시 빌드했으면 서버 재시작 |
 
 ## 5. 백업·초기화
