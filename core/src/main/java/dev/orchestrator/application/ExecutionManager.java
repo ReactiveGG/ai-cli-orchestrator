@@ -61,7 +61,7 @@ public final class ExecutionManager {
     private final IsolationSettings isolationSettings;
 
     public ExecutionManager(PromptCompiler promptCompiler, FlowConfig config, AiModule... modules) {
-        this(promptCompiler, config, Duration.ofMinutes(10), Duration.ofSeconds(60), IsolationSettings.DISABLED, modules);
+        this(promptCompiler, config, Duration.ofMinutes(25), Duration.ofSeconds(60), IsolationSettings.DISABLED, modules);
     }
 
     public ExecutionManager(PromptCompiler promptCompiler, FlowConfig config, Duration moduleTimeout, Duration idleWarning, AiModule... modules) {

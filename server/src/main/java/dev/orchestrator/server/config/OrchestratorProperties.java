@@ -23,7 +23,7 @@ public record OrchestratorProperties(
         @DefaultValue("${user.home}/.ai-orchestrator") Path dataDir,
         Path workspace,
         @DefaultValue("2") int concurrency,
-        @DefaultValue("10m") Duration moduleTimeout,
+        @DefaultValue("25m") Duration moduleTimeout,
         @DefaultValue("60s") Duration idleWarning,
         @DefaultValue Map<String, ModuleSettings> modules,
         @DefaultValue Status status,
