@@ -224,7 +224,8 @@ public final class ClaudeCliModule extends CliAiModule {
                 seven.hasNonNull("utilization") ? seven.path("utilization").asDouble() : null,
                 seven.hasNonNull("resetsAt") ? instantOf(seven.get("resetsAt")) : null,
                 info.hasNonNull("rateLimitType") ? info.path("rateLimitType").asText() : null,
-                java.time.Instant.now());
+                java.time.Instant.now(),
+                info.hasNonNull("isUsingOverage") ? info.path("isUsingOverage").asBoolean() : null);
     }
 
     /** Accepts epoch seconds, epoch millis or ISO-8601 text. */

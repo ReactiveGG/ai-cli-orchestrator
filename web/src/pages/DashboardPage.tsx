@@ -15,6 +15,11 @@ import { errorMessage } from '../lib/errors'
 export function DashboardPage({ jobs }: { jobs: Job[] }) {
   const dash = useQuery({ queryKey: ['dashboard'], queryFn: api.dashboard, refetchInterval: 10_000 })
   const d = dash.data
+  // The refresh button also asks Claude for fresh subscription windows (the CLI reports them only while it runs).
+  // The 10s auto-refresh deliberately does not: it would spend usage to measure usage.
+  const [probeNote, setProbeNote] = useState<string | null>(null)
+  const probe = useMutation({ mutationFn: api.probeUsage, onSuccess: () => { setProbeNote(null); dash.refetch() }, onError: (e) => setProbeNote(errorMessage(e)) })
+  const refreshAll = () => { dash.refetch(); if (d?.status.modules.find((m) => m.name === 'claude')?.mode === 'cli') probe.mutate() }
 
   const running = jobs.filter((j) => j.status === 'RUNNING').length
   const queued = jobs.filter((j) => j.status === 'QUEUED').length
@@ -61,13 +66,13 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
         value={`${running} 실행 중`}
         hint={`대기 ${queued} · 실패 ${failed} · 동시 실행 상한 ${d?.concurrency ?? '-'}`}
       />
-      <SubscriptionTile info={d?.subscription ?? null} loading={!d} />
+      <SubscriptionTile info={d?.subscription ?? null} loading={!d} probing={probe.isPending} note={probeNote} />
       <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
           <div className="text-xs font-medium uppercase tracking-wide text-slate-500">최근 7일 토큰</div>
           <span className="text-xs text-slate-400">{d ? `갱신 ${formatTime(d.generatedAt)} · 10초마다 자동` : '불러오는 중…'}</span>
-          <button onClick={() => dash.refetch()} disabled={dash.isFetching} title="새로고침" className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-            <RefreshCw size={12} className={dash.isFetching ? 'animate-spin' : ''} /> 새로고침
+          <button onClick={() => refreshAll()} disabled={dash.isFetching || probe.isPending} title="토큰 그래프와 구독 사용량을 새로 조회합니다 (Claude에 아주 짧은 호출 1회)" className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+            <RefreshCw size={12} className={dash.isFetching || probe.isPending ? 'animate-spin' : ''} /> {probe.isPending ? '사용량 조회 중…' : '새로고침'}
           </button>
         </div>
         <div className="h-56 md:h-56">
@@ -83,7 +88,7 @@ export function DashboardPage({ jobs }: { jobs: Job[] }) {
  * Subscription windows (5-hour / 7-day) from the CLI's rate_limit_event. On a
  * subscription plan these, not dollars, are the budget that runs out.
  */
-function SubscriptionTile({ info, loading }: { info: RateLimitInfo | null; loading: boolean }) {
+function SubscriptionTile({ info, loading, probing, note }: { info: RateLimitInfo | null; loading: boolean; probing?: boolean; note?: string | null }) {
   const now = useNow()
   const worst = Math.max(info?.fiveHourUtilization ?? 0, info?.sevenDayUtilization ?? 0)
   const blocked = !!info && info.status !== null && info.status !== 'allowed'
@@ -93,13 +98,15 @@ function SubscriptionTile({ info, loading }: { info: RateLimitInfo | null; loadi
     <StatTile
       label="구독 사용량"
       tone={tone}
-      value={loading ? '…' : !info ? '관측 없음' : blocked ? (info.status === 'allowed_warning' ? '한도 임박' : '한도 도달') : `${Math.round(worst * 100)}%`}
+      value={loading ? '…' : probing ? '조회 중…' : !info ? '관측 없음' : blocked ? (info.status === 'allowed_warning' ? '한도 임박' : '한도 도달') : `${Math.round(worst * 100)}%`}
       hint={!info
-        ? (loading ? undefined : '실제 Claude 작업이 한 번 돌면 5시간·7일 창 사용률이 여기에 표시됩니다')
+        ? (loading ? undefined : 'Claude 작업이 한 번 돌거나 위 "새로고침"을 누르면 현재 세션(5시간)·이번 주(7일) 사용률이 표시됩니다')
         : <>
-            <Meter label="5시간" value={info.fiveHourUtilization} resetsAt={info.fiveHourResetsAt} now={now} />
-            <Meter label="7일" value={info.sevenDayUtilization} resetsAt={info.sevenDayResetsAt} now={now} />
-            <div className="mt-1 text-slate-400">{ageMin < 1 ? '방금' : `${ageMin}분 전`} 관측{info.status && info.status !== 'allowed' ? ` · CLI 상태 ${info.status}` : ''}</div>
+            <Meter label="현재 세션 (5시간)" value={info.fiveHourUtilization} resetsAt={info.fiveHourResetsAt} now={now} />
+            <Meter label="이번 주 (7일)" value={info.sevenDayUtilization} resetsAt={info.sevenDayResetsAt} now={now} />
+            {info.usingOverage && <div className="mt-1 text-amber-700 dark:text-amber-300">플랜 한도를 넘어 추가 크레딧을 쓰는 중</div>}
+            <div className="mt-1 text-slate-400">마지막 Claude 호출 기준 · {ageMin < 1 ? '방금' : `${ageMin}분 전`}{info.status && info.status !== 'allowed' ? ` · CLI 상태 ${info.status}` : ''}. 모델별 주간 한도는 CLI가 보고하지 않습니다.</div>
+            {note && <div className="mt-1 text-rose-600 dark:text-rose-300">{note}</div>}
           </>}
     />
   )

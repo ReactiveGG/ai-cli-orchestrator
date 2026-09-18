@@ -127,6 +127,8 @@ export interface RateLimitInfo {
   sevenDayResetsAt: string | null
   rateLimitType: string | null
   observedAt: string
+  /** drawing on extra usage credits; null when the CLI did not say */
+  usingOverage: boolean | null
 }
 
 /** Can the saved workspace run competition mode? (git repo + git installed) */

@@ -14,8 +14,14 @@ public record RateLimitInfo(
         Double sevenDayUtilization,
         Instant sevenDayResetsAt,
         String rateLimitType,
-        Instant observedAt
+        Instant observedAt,
+        /** the account is drawing on extra usage credits (plan window exhausted); null when not reported */
+        Boolean usingOverage
 ) {
+    public RateLimitInfo(String status, Double fiveHourUtilization, Instant fiveHourResetsAt, Double sevenDayUtilization,
+                         Instant sevenDayResetsAt, String rateLimitType, Instant observedAt) {
+        this(status, fiveHourUtilization, fiveHourResetsAt, sevenDayUtilization, sevenDayResetsAt, rateLimitType, observedAt, null);
+    }
     public boolean allowed() {
         return status == null || status.isBlank() || "allowed".equals(status);
     }
