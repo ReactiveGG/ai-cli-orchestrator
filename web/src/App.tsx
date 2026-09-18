@@ -18,7 +18,8 @@ type Conn = 'connecting' | 'live' | 'down'
 /** URL hash is the source of truth for view + selected job: #dashboard[/<id>], #jobs[/<id>], #config. #command opens the palette. */
 function readHash(): { view: View; selected: string | null; command: boolean } {
   const [view, id] = window.location.hash.replace(/^#/, '').split('/')
-  const v: View = view === 'jobs' || view === 'config' ? view : 'dashboard'
+  // #config-settings = the config tab scrolled to the server-settings panel (links from the dashboard and the config sidebar)
+  const v: View = view === 'jobs' || view === 'config' || view === 'config-settings' ? (view === 'config-settings' ? 'config' : view) : 'dashboard'
   return { view: v, selected: v !== 'config' && id ? decodeURIComponent(id) : null, command: view === 'command' }
 }
 
@@ -35,6 +36,16 @@ export default function App() {
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
+  // After the config tab renders, bring the server-settings panel into view and focus the claude executable field.
+  useEffect(() => {
+    if (window.location.hash !== '#config-settings') return
+    const t = window.setTimeout(() => {
+      document.getElementById('config-settings')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const field = document.getElementById('module-claude-command') as HTMLInputElement | null
+      field?.focus(); field?.select()
+    }, 150)
+    return () => window.clearTimeout(t)
+  }, [route])
   const [paletteOpen, setPaletteOpen] = useState(route.command)
   useEffect(() => { if (route.command) setPaletteOpen(true) }, [route.command])
   const [palettePreset, setPalettePreset] = useState<string | undefined>(undefined)

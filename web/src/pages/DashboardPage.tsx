@@ -157,7 +157,7 @@ function ClaudeActions({ showLogin, onDone }: { showLogin: boolean; onDone: () =
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
       {showLogin && <button onClick={() => login.mutate()} disabled={login.isPending || waiting} className={btn}><LogIn size={12} className={waiting ? 'animate-pulse' : ''} /> {waiting ? '로그인 대기 중…' : '로그인 창 열기'}</button>}
       <button onClick={() => refresh.mutate()} disabled={refresh.isPending} className={btn}><Recheck size={12} className={refresh.isPending ? 'animate-spin' : ''} /> 다시 확인</button>
-      <a href="#config-settings" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
+      <a href="#config-settings" onClick={(e) => { if (window.location.hash === '#config-settings') { e.preventDefault(); window.dispatchEvent(new HashChangeEvent('hashchange')) } }} title="구성 탭의 서버 설정으로 이동해 claude 실행 파일 경로를 직접 입력" className={btn}><Settings2 size={12} /> 실행 파일 설정</a>
       {note && <span className="w-full text-[11px] text-slate-500">{note}</span>}
     </div>
   )

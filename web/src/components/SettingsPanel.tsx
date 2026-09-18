@@ -81,8 +81,8 @@ export function SettingsPanel() {
                   <option value="AUTO">AUTO (설치돼 있으면 CLI)</option><option value="CLI">CLI</option><option value="STUB">STUB (호출 안 함)</option>
                 </select>
               </label>
-              <label className={label}>실행 파일
-                <input value={m.command} onChange={(e) => setModule(name, { command: e.target.value })} className={`${input} mono`} />
+              <label className={label}>실행 파일 (이름 또는 절대 경로. 자동으로 못 찾을 때 <span className="mono">where claude</span> 결과를 붙여 넣기)
+                <input id={`module-${name}-command`} value={m.command} onChange={(e) => setModule(name, { command: e.target.value })} placeholder={name} className={`${input} mono`} />
               </label>
               <label className={label}>기본 모델 (칩에 지정 없을 때)
                 <input value={m.model ?? ''} onChange={(e) => setModule(name, { model: e.target.value || null })} placeholder="CLI 기본값" className={`${input} mono`} />
