@@ -14,6 +14,10 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
+springBoot {
+    buildInfo()   // META-INF/build-info.properties → BuildProperties → /api/session.version
+}
+
 // --- Frontend integration -------------------------------------------------
 // `./gradlew :server:bootRun` (or bootJar) builds web/ with npm and bundles the
 // output as static resources when web/node_modules exists. Pass -PskipWeb to

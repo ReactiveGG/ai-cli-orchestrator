@@ -13,13 +13,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class SessionController {
     private final ApiToken token;
+    private final String version;
 
-    public SessionController(ApiToken token) {
+    public SessionController(ApiToken token, org.springframework.beans.factory.ObjectProvider<org.springframework.boot.info.BuildProperties> build) {
         this.token = token;
+        org.springframework.boot.info.BuildProperties b = build.getIfAvailable();
+        this.version = b == null ? "dev" : b.getVersion();
     }
 
     @GetMapping("/api/session")
     public Map<String, Object> session() {
-        return Map.of("tokenRequired", token.value() != null, "token", token.value() == null ? "" : token.value());
+        return Map.of("tokenRequired", token.value() != null, "token", token.value() == null ? "" : token.value(), "version", version);
     }
 }

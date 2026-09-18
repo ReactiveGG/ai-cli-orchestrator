@@ -2,6 +2,7 @@
 // (see .env.mock). Same shapes as the real API; jobs run on a timer so the UI
 // shows progress, streaming logs and cancellation without any backend.
 import type {
+  DirListing,
   AgentDto, Catalog, Dashboard, FlowConfig, FlowDto, FlowInfo, Job, JobEvent, JobRequest, JobStep, LogLevel, PlanStep, StageDto, Settings, StatusReport, TokenUsage,
 } from './types'
 
@@ -329,6 +330,7 @@ export const mockApi = {
     return y
   },
   settings: (): Promise<Settings> => delay(structuredClone(mockSettings)),
+  listDirs: (path?: string): Promise<DirListing> => { const base = path || 'C:\\dev'; return delay({ path: base, parent: base.includes('\\') && base !== 'C:\\dev' ? base.slice(0, base.lastIndexOf('\\')) : null, dirs: ['my-service', 'web-app', 'scripts'].map((n) => ({ name: n, path: `${base}\\${n}`, gitRepo: n !== 'scripts' })), roots: [{ name: 'C:\\dev', path: 'C:\\dev', gitRepo: false }], allowed: true, error: null }) },
   browseFolder: (initial: string): Promise<{ path: string | null; backend: string }> => delay({ path: initial ? initial.replace(/[\\/]+$/, '') + '\\picked-folder' : 'C:\\dev\\picked-folder', backend: 'MOCK' }),
   saveSettings: (body: Settings): Promise<Settings> => { mockSettings = structuredClone(body); return delay(structuredClone(mockSettings)) },
 }

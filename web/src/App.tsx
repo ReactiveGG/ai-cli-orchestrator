@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, BellOff, BellRing, Command as CommandIcon, ExternalLink, LayoutDashboard, ListChecks, Settings2 } from 'lucide-react'
-import { api, subscribe, MOCK } from './lib/api'
+import { api, subscribe, MOCK, serverVersion } from './lib/api'
 import type { Job } from './lib/types'
 import { errorMessage } from './lib/errors'
 import { notifyJob, notifyLabel, notifyState, toggleNotify, type NotifyState } from './lib/notify'
@@ -45,7 +45,8 @@ export default function App() {
 
   const initial = useQuery({ queryKey: ['jobs'], queryFn: api.jobs })
   const settings = useQuery({ queryKey: ['settings'], queryFn: api.settings, staleTime: 60_000 })
-  const catalog = useQuery({ queryKey: ['catalog'], queryFn: api.catalog, staleTime: 60_000 })
+  // version arrives with the session token; MOCK has none
+  const version = MOCK ? 'mock' : (settings.data ? serverVersion : '')
   useEffect(() => {
     if (initial.data) setJobs(initial.data)
   }, [initial.data])
@@ -120,7 +121,10 @@ export default function App() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
-        <div className="whitespace-nowrap font-semibold">AI CLI Orchestrator{MOCK && <span className="ml-2 rounded-full border border-slate-300 px-2 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:border-slate-600">mock</span>}</div>
+        <a href="#dashboard" onClick={(e) => { e.preventDefault(); setView('dashboard') }} title="대시보드로" className="flex items-center gap-2 whitespace-nowrap font-semibold hover:opacity-80">
+          <img src="/favicon.png" alt="" width={22} height={22} className="rounded-md" />
+          AI CLI Orchestrator{MOCK && <span className="ml-1 rounded-full border border-slate-300 px-2 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:border-slate-600">mock</span>}
+        </a>
         <nav className="order-last flex w-full gap-1 sm:order-none sm:ml-4 sm:w-auto">
           {nav.map((n) => (
             <button
@@ -177,16 +181,9 @@ export default function App() {
       </main>
 
       <footer className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-6 gap-y-1">
-          <span className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">AI CLI Orchestrator <span className="mono font-normal text-slate-400">v0.1.0</span></span>
-          <span className="whitespace-nowrap">플래너 → 코더 → 리뷰어 → 검증자 · 프리셋 {catalog.data?.flows.length ?? '–'}개</span>
-          {settings.data && <span className="min-w-0 truncate" title={settings.data.workspace}>작업 공간 <span className="mono">{shorten(settings.data.workspace)}</span></span>}
-          {settings.data && <span className="min-w-0 truncate" title={settings.data.routingFile}>설정 <span className="mono">{shorten(settings.data.routingFile)}</span></span>}
-          <span className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:ml-auto">
-            <span className="whitespace-nowrap">{jobs.length}개 작업 · 실행 {running} · 대기 {queued}</span>
-            <a href="https://github.com/ReactiveGG/ai-cli-orchestrator" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-slate-800 dark:hover:text-slate-100">GitHub <ExternalLink size={11} /></a>
-            <span className="whitespace-nowrap text-slate-400">단축키 <kbd className="rounded border border-slate-300 px-1 text-[10px] dark:border-slate-600">Ctrl K</kbd> 명령</span>
-          </span>
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-x-6 gap-y-1">
+          <span className="whitespace-nowrap font-medium text-slate-700 dark:text-slate-200">AI CLI Orchestrator <span className="mono font-normal text-slate-400">{version ? `v${version}` : ''}</span></span>
+          <a href="https://github.com/ReactiveGG/ai-cli-orchestrator" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 whitespace-nowrap hover:text-slate-800 dark:hover:text-slate-100">제작 ReactiveGG <ExternalLink size={11} /></a>
         </div>
       </footer>
 
@@ -195,8 +192,3 @@ export default function App() {
   )
 }
 
-/** Keeps a long path readable in the footer: first segment … last two segments. */
-function shorten(path: string): string {
-  const parts = path.split(/[\\/]+/).filter(Boolean)
-  return parts.length <= 3 ? path : `${parts[0]}/…/${parts.slice(-2).join('/')}`
-}
