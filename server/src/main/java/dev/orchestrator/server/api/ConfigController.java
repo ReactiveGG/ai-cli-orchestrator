@@ -46,7 +46,10 @@ public class ConfigController {
     private final OrchestratorProperties properties;
     private final dev.orchestrator.server.job.JobService jobs;
 
-    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties, dev.orchestrator.server.job.JobService jobs) {
+    private final dev.orchestrator.server.config.FolderDialog folderDialog;
+
+    public ConfigController(OrchestrationService orchestration, OrchestratorProperties properties, dev.orchestrator.server.job.JobService jobs, dev.orchestrator.server.config.FolderDialog folderDialog) {
+        this.folderDialog = folderDialog;
         this.orchestration = orchestration;
         this.properties = properties;
         this.jobs = jobs;
@@ -85,6 +88,17 @@ public class ConfigController {
         Files.writeString(file, dto.toYaml(), StandardCharsets.UTF_8);
         orchestration.reload(config);
         return dto;
+    }
+
+    /** Opens the OS folder dialog on the server's desktop and returns the chosen path ({@code path} null when cancelled). */
+    @org.springframework.web.bind.annotation.PostMapping("/settings/browse")
+    public java.util.Map<String, Object> browse(@RequestBody(required = false) java.util.Map<String, String> body) throws java.io.IOException, InterruptedException {
+        String initial = body == null ? null : body.get("initial");
+        java.util.Optional<String> picked = folderDialog.pick(initial);
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("path", picked.orElse(null));
+        out.put("backend", folderDialog.backend().name());
+        return out;
     }
 
     @GetMapping("/settings")
